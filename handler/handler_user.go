@@ -76,6 +76,19 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 		if err != nil {
 			return scim.Resource{}, err
 		}
+
+		_, err = u.dirClient.Writer.SetRelation(r.Context(), &dsw.SetRelationRequest{
+			Relation: &dsc.Relation{
+				ObjectType:  "identity",
+				ObjectId:    email["value"].(string),
+				Relation:    "identifier",
+				SubjectType: "user",
+				SubjectId:   uuid.String(),
+			},
+		})
+		if err != nil {
+			return scim.Resource{}, err
+		}
 	}
 
 	return resource, nil
