@@ -206,7 +206,31 @@ func (u UsersResourceHandler) Replace(r *http.Request, id string, attributes sci
 }
 
 func (u UsersResourceHandler) Delete(r *http.Request, id string) error {
-	_, err := u.dirClient.Writer.DeleteObject(r.Context(), &dsw.DeleteObjectRequest{
+	relations, err := u.dirClient.Reader.GetRelations(r.Context(), &dsr.GetRelationsRequest{
+		SubjectType: "user",
+		SubjectId:   id,
+	})
+	if err != nil {
+		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
+			return serrors.ScimErrorResourceNotFound(id)
+		}
+		return err
+	}
+
+	for _, v := range relations.Results {
+		if v.Relation == "identifier" {
+			_, err = u.dirClient.Writer.DeleteObject(r.Context(), &dsw.DeleteObjectRequest{
+				ObjectId:      v.ObjectId,
+				ObjectType:    v.ObjectType,
+				WithRelations: true,
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	_, err = u.dirClient.Writer.DeleteObject(r.Context(), &dsw.DeleteObjectRequest{
 		ObjectType:    "user",
 		ObjectId:      id,
 		WithRelations: true,
