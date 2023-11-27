@@ -6,6 +6,7 @@ import (
 	cerr "github.com/aserto-dev/errors"
 	"github.com/aserto-dev/go-directory/pkg/derr"
 	serrors "github.com/elimity-com/scim/errors"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
 	"github.com/aserto-dev/go-aserto/client"
@@ -34,7 +35,11 @@ func NewUsersResourceHandler(cfg *client.Config) (*UsersResourceHandler, error) 
 }
 
 func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAttributes) (scim.Resource, error) {
-	object, err := resourceAttrToObject(attributes, "user")
+	uuid, err := uuid.NewRandom()
+	if err != nil {
+		return scim.Resource{}, err
+	}
+	object, err := resourceAttrToObject(attributes, "user", uuid.String())
 	if err != nil {
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
@@ -53,6 +58,25 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 		LastModified: &updatedAt,
 		Version:      resp.Result.Etag,
 	})
+
+	for _, m := range attributes["emails"].([]interface{}) {
+		email := m.(map[string]interface{})
+		props, err := structpb.NewStruct(email)
+		if err != nil {
+			return scim.Resource{}, err
+		}
+
+		_, err = u.dirClient.Writer.SetObject(r.Context(), &dsw.SetObjectRequest{
+			Object: &dsc.Object{
+				Type:       "identity",
+				Id:         email["value"].(string),
+				Properties: props,
+			},
+		})
+		if err != nil {
+			return scim.Resource{}, err
+		}
+	}
 
 	return resource, nil
 }
@@ -110,7 +134,7 @@ func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 }
 
 func (u UsersResourceHandler) Replace(r *http.Request, id string, attributes scim.ResourceAttributes) (scim.Resource, error) {
-	object, err := resourceAttrToObject(attributes, "user")
+	object, err := resourceAttrToObject(attributes, "user", id)
 	if err != nil {
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
@@ -136,8 +160,9 @@ func (u UsersResourceHandler) Replace(r *http.Request, id string, attributes sci
 
 func (u UsersResourceHandler) Delete(r *http.Request, id string) error {
 	_, err := u.dirClient.Writer.DeleteObject(r.Context(), &dsw.DeleteObjectRequest{
-		ObjectType: "user",
-		ObjectId:   id,
+		ObjectType:    "user",
+		ObjectId:      id,
+		WithRelations: true,
 	})
 	if err != nil {
 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
@@ -166,14 +191,21 @@ func objectToResource(object *dsc.Object, meta scim.Meta) scim.Resource {
 	}
 }
 
-func resourceAttrToObject(resourceAttributes scim.ResourceAttributes, objectType string) (*dsc.Object, error) {
+func resourceAttrToObject(resourceAttributes scim.ResourceAttributes, objectType, id string) (*dsc.Object, error) {
 	props, err := structpb.NewStruct(resourceAttributes)
 	if err != nil {
 		return nil, err
 	}
+
+	var userName string
+	if resourceAttributes["userName"] != nil {
+		userName = resourceAttributes["userName"].(string)
+	}
 	object := &dsc.Object{
-		Type:       objectType,
-		Properties: props,
+		Type:        objectType,
+		Properties:  props,
+		Id:          id,
+		DisplayName: userName,
 	}
 	return object, nil
 }

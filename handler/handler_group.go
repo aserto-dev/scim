@@ -10,6 +10,7 @@ import (
 	"github.com/aserto-dev/scim/directory"
 	"github.com/elimity-com/scim"
 	serrors "github.com/elimity-com/scim/errors"
+	"github.com/google/uuid"
 )
 
 type GroupResourceHandler struct {
@@ -27,7 +28,11 @@ func NewGroupResourceHandler(cfg *client.Config) (*GroupResourceHandler, error) 
 }
 
 func (u GroupResourceHandler) Create(r *http.Request, attributes scim.ResourceAttributes) (scim.Resource, error) {
-	object, err := resourceAttrToObject(attributes, "group")
+	uuid, err := uuid.NewRandom()
+	if err != nil {
+		return scim.Resource{}, err
+	}
+	object, err := resourceAttrToObject(attributes, "group", uuid.String())
 	if err != nil {
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
@@ -104,7 +109,7 @@ func (u GroupResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 }
 
 func (u GroupResourceHandler) Replace(r *http.Request, id string, attributes scim.ResourceAttributes) (scim.Resource, error) {
-	object, err := resourceAttrToObject(attributes, "group")
+	object, err := resourceAttrToObject(attributes, "group", id)
 	if err != nil {
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
