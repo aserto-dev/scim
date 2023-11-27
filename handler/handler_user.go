@@ -6,7 +6,6 @@ import (
 	cerr "github.com/aserto-dev/errors"
 	"github.com/aserto-dev/go-directory/pkg/derr"
 	serrors "github.com/elimity-com/scim/errors"
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
 	"github.com/aserto-dev/go-aserto/client"
@@ -35,11 +34,7 @@ func NewUsersResourceHandler(cfg *client.Config) (*UsersResourceHandler, error) 
 }
 
 func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAttributes) (scim.Resource, error) {
-	uuid, err := uuid.NewRandom()
-	if err != nil {
-		return scim.Resource{}, err
-	}
-	object, err := resourceAttrToObject(attributes, "user", uuid.String())
+	object, err := resourceAttrToObject(attributes, "user", attributes["userName"].(string))
 	if err != nil {
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
