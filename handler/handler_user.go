@@ -59,22 +59,69 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 		Version:      resp.Result.Etag,
 	})
 
-	for _, m := range attributes["emails"].([]interface{}) {
-		email := m.(map[string]interface{})
-		props, err := structpb.NewStruct(email)
+	if attributes["userName"] != nil {
+		propsMap := make(map[string]interface{})
+		propsMap["kind"] = "IDENTITY_KIND_USERNAME"
+		props, err := structpb.NewStruct(propsMap)
 		if err != nil {
 			return scim.Resource{}, err
 		}
-
 		_, err = u.dirClient.Writer.SetObject(r.Context(), &dsw.SetObjectRequest{
 			Object: &dsc.Object{
 				Type:       "identity",
-				Id:         email["value"].(string),
+				Id:         attributes["userName"].(string),
 				Properties: props,
 			},
 		})
 		if err != nil {
 			return scim.Resource{}, err
+		}
+
+		_, err = u.dirClient.Writer.SetRelation(r.Context(), &dsw.SetRelationRequest{
+			Relation: &dsc.Relation{
+				SubjectId:   resp.Result.Id,
+				SubjectType: "user",
+				Relation:    "identifier",
+				ObjectType:  "identity",
+				ObjectId:    attributes["userName"].(string),
+			}})
+		if err != nil {
+			return scim.Resource{}, err
+		}
+	}
+
+	if attributes["emails"] != nil {
+		for _, m := range attributes["emails"].([]interface{}) {
+			email := m.(map[string]interface{})
+			propsMap := make(map[string]interface{})
+			propsMap["kind"] = "IDENTITY_KIND_EMAIL"
+			props, err := structpb.NewStruct(propsMap)
+			if err != nil {
+				return scim.Resource{}, err
+			}
+
+			_, err = u.dirClient.Writer.SetObject(r.Context(), &dsw.SetObjectRequest{
+				Object: &dsc.Object{
+					Type:       "identity",
+					Id:         email["value"].(string),
+					Properties: props,
+				},
+			})
+			if err != nil {
+				return scim.Resource{}, err
+			}
+
+			_, err = u.dirClient.Writer.SetRelation(r.Context(), &dsw.SetRelationRequest{
+				Relation: &dsc.Relation{
+					SubjectId:   resp.Result.Id,
+					SubjectType: "user",
+					Relation:    "identifier",
+					ObjectType:  "identity",
+					ObjectId:    email["value"].(string),
+				}})
+			if err != nil {
+				return scim.Resource{}, err
+			}
 		}
 	}
 

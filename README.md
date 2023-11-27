@@ -25,5 +25,8 @@ curl -X 'POST' -H 'Content-Type: application/json' 'http://127.0.0.1:8080/Users'
 EOF
 ```
 
+### get user
+`curl -X 'GET' 'http://127.0.0.1:8080/Users/{user id}' `
+
 ### delete user
-`curl -X 'DELETE' -H 'Content-Type: application/json' 'http://127.0.0.1:8080/Users/{user id}' `
+`curl -X 'DELETE' 'http://127.0.0.1:8080/Users/{user id}' `
