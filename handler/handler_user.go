@@ -17,6 +17,7 @@ import (
 
 	"github.com/elimity-com/scim"
 	"github.com/elimity-com/scim/optional"
+	filter "github.com/scim2/filter-parser/v2"
 )
 
 type UsersResourceHandler struct {
@@ -43,6 +44,9 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 		Object: object,
 	})
 	if err != nil {
+		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrAlreadyExists) {
+			return scim.Resource{}, serrors.ScimErrorUniqueness
+		}
 		return scim.Resource{}, err
 	}
 
@@ -95,6 +99,10 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 				return scim.Resource{}, err
 			}
 
+			if email["value"].(string) == attributes["userName"].(string) {
+				continue
+			}
+
 			_, err = u.dirClient.Writer.SetObject(r.Context(), &dsw.SetObjectRequest{
 				Object: &dsc.Object{
 					Type:       "identity",
@@ -130,6 +138,9 @@ func (u UsersResourceHandler) Get(r *http.Request, id string) (scim.Resource, er
 		WithRelations: true,
 	})
 	if err != nil {
+		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
+			return scim.Resource{}, serrors.ScimErrorResourceNotFound(id)
+		}
 		return scim.Resource{}, err
 	}
 
@@ -158,6 +169,16 @@ func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 	if err != nil {
 		return scim.Page{}, err
 	}
+
+	var f filter.AttributeExpression
+
+	if params.Filter != nil {
+		f, err = filter.ParseAttrExp([]byte(params.Filter.(*filter.AttributeExpression).String()))
+		if err != nil {
+			return scim.Page{}, err
+		}
+	}
+
 	for _, v := range resp.Results {
 		createdAt := v.CreatedAt.AsTime()
 		updatedAt := v.UpdatedAt.AsTime()
@@ -166,7 +187,21 @@ func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 			LastModified: &updatedAt,
 			Version:      v.Etag,
 		})
-		resources = append(resources, resource)
+
+		if params.Filter != nil {
+			switch f.Operator {
+			case filter.EQ:
+				if resource.Attributes[f.AttributePath.AttributeName] == f.CompareValue {
+					resources = append(resources, resource)
+				}
+			case filter.NE:
+				if resource.Attributes[f.AttributePath.AttributeName] != f.CompareValue {
+					resources = append(resources, resource)
+				}
+			}
+		} else {
+			resources = append(resources, resource)
+		}
 	}
 
 	return scim.Page{
