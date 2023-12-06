@@ -1,0 +1,13 @@
+---
+server:
+  listen_address: ":8081"
+  auth:
+    username: "scim"
+    password: "scim"
+directory:
+  address: "directory.eng.aserto.com:8443"
+  tenant_id: ""
+  api_key: ""
+scim:
+  create_email_identities: true
+  create_role_groups: true

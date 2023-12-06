@@ -3,7 +3,7 @@ Aserto SCIM service
 
 ### start service
 ```
-go run ./cmd/aserto-scim/main.go run --address {directory addr} --tenant-id {tenant-id} --api-key {api key}
+go run ./cmd/aserto-scim/main.go run -c ./config.yaml
 ```
 
 ### list users

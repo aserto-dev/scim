@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 
 	cerr "github.com/aserto-dev/errors"
@@ -8,11 +9,11 @@ import (
 	serrors "github.com/elimity-com/scim/errors"
 	"github.com/pkg/errors"
 
-	"github.com/aserto-dev/go-aserto/client"
 	dsc "github.com/aserto-dev/go-directory/aserto/directory/common/v3"
 	dsr "github.com/aserto-dev/go-directory/aserto/directory/reader/v3"
 	dsw "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
 	"github.com/aserto-dev/scim/directory"
+	"github.com/aserto-dev/scim/pkg/config"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/elimity-com/scim"
@@ -22,15 +23,17 @@ import (
 
 type UsersResourceHandler struct {
 	dirClient *directory.DirectoryClient
+	cfg       *config.Config
 }
 
-func NewUsersResourceHandler(cfg *client.Config) (*UsersResourceHandler, error) {
-	dirClient, err := directory.GetDirectoryClient(cfg)
+func NewUsersResourceHandler(cfg *config.Config) (*UsersResourceHandler, error) {
+	dirClient, err := directory.GetDirectoryClient(&cfg.Directory)
 	if err != nil {
 		return nil, err
 	}
 	return &UsersResourceHandler{
 		dirClient: dirClient,
+		cfg:       cfg,
 	}, nil
 }
 
@@ -128,6 +131,13 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 		}
 	}
 
+	if attributes["groups"] != nil {
+		err = u.setUserGroups(r.Context(), resp.Result.Id, attributes["groups"].([]string))
+		if err != nil {
+			return scim.Resource{}, err
+		}
+	}
+
 	return resource, nil
 }
 
@@ -211,25 +221,45 @@ func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 }
 
 func (u UsersResourceHandler) Replace(r *http.Request, id string, attributes scim.ResourceAttributes) (scim.Resource, error) {
+	getObjResp, err := u.dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
+		ObjectType:    "user",
+		ObjectId:      id,
+		WithRelations: true,
+	})
+	if err != nil {
+		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
+			return scim.Resource{}, serrors.ScimErrorResourceNotFound(id)
+		}
+		return scim.Resource{}, err
+	}
+
 	object, err := resourceAttrToObject(attributes, "user", id)
 	if err != nil {
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
 	object.Id = id
+	object.Etag = getObjResp.Result.Etag
 
-	resp, err := u.dirClient.Writer.SetObject(r.Context(), &dsw.SetObjectRequest{
+	setResp, err := u.dirClient.Writer.SetObject(r.Context(), &dsw.SetObjectRequest{
 		Object: object,
 	})
 	if err != nil {
 		return scim.Resource{}, err
 	}
 
-	createdAt := resp.Result.CreatedAt.AsTime()
-	updatedAt := resp.Result.UpdatedAt.AsTime()
-	resource := objectToResource(resp.Result, scim.Meta{
+	if attributes["groups"] != nil {
+		err = u.setUserGroups(r.Context(), id, attributes["groups"].([]string))
+		if err != nil {
+			return scim.Resource{}, err
+		}
+	}
+
+	createdAt := setResp.Result.CreatedAt.AsTime()
+	updatedAt := setResp.Result.UpdatedAt.AsTime()
+	resource := objectToResource(setResp.Result, scim.Meta{
 		Created:      &createdAt,
 		LastModified: &updatedAt,
-		Version:      resp.Result.Etag,
+		Version:      setResp.Result.Etag,
 	})
 
 	return resource, nil
@@ -275,19 +305,172 @@ func (u UsersResourceHandler) Delete(r *http.Request, id string) error {
 }
 
 func (u UsersResourceHandler) Patch(r *http.Request, id string, operations []scim.PatchOperation) (scim.Resource, error) {
-	return scim.Resource{}, &serrors.ScimError{
-		Status: http.StatusNotImplemented,
+	getObjResp, err := u.dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
+		ObjectType:    "user",
+		ObjectId:      id,
+		WithRelations: true,
+	})
+	if err != nil {
+		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
+			return scim.Resource{}, serrors.ScimErrorResourceNotFound(id)
+		}
+		return scim.Resource{}, err
 	}
+
+	object, err := resourceAttrToObject(getObjResp.Result.Properties.AsMap(), "user", id)
+	if err != nil {
+		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
+	}
+
+	for _, op := range operations {
+		switch op.Op {
+		case scim.PatchOperationAdd:
+			if op.Path != nil && op.Path.AttributePath.AttributeName == "groups" {
+				err = u.addUserToGroup(r.Context(), id, op.Value.(string))
+				if err != nil {
+					return scim.Resource{}, err
+				}
+			}
+		case scim.PatchOperationRemove:
+			if op.Path != nil && op.Path.AttributePath.AttributeName == "groups" {
+				err = u.removeUserFromGroup(r.Context(), id, op.Value.(string))
+				if err != nil {
+					return scim.Resource{}, err
+				}
+			}
+		case scim.PatchOperationReplace:
+			if op.Path != nil && op.Path.AttributePath.AttributeName == "groups" {
+				err = u.removeUserFromGroup(r.Context(), id, op.Value.(string))
+				if err != nil {
+					return scim.Resource{}, err
+				}
+				err = u.addUserToGroup(r.Context(), id, op.Value.(string))
+				if err != nil {
+					return scim.Resource{}, err
+				}
+			}
+		}
+	}
+
+	resp, err := u.dirClient.Writer.SetObject(r.Context(), &dsw.SetObjectRequest{
+		Object: object,
+	})
+	if err != nil {
+		return scim.Resource{}, err
+	}
+
+	createdAt := resp.Result.CreatedAt.AsTime()
+	updatedAt := resp.Result.UpdatedAt.AsTime()
+	resource := objectToResource(resp.Result, scim.Meta{
+		Created:      &createdAt,
+		LastModified: &updatedAt,
+		Version:      resp.Result.Etag,
+	})
+
+	return resource, nil
+}
+
+func (u UsersResourceHandler) setUserGroups(ctx context.Context, userId string, groups []string) error {
+	relations, err := u.dirClient.Reader.GetRelations(ctx, &dsr.GetRelationsRequest{
+		SubjectType: "user",
+		SubjectId:   userId,
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, v := range relations.Results {
+		if v.Relation == "member" {
+			_, err = u.dirClient.Writer.DeleteRelation(ctx, &dsw.DeleteRelationRequest{
+				SubjectType: v.SubjectType,
+				SubjectId:   v.SubjectId,
+				Relation:    v.Relation,
+				ObjectType:  v.ObjectType,
+				ObjectId:    v.ObjectId,
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	for _, v := range groups {
+		_, err = u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
+			Relation: &dsc.Relation{
+				SubjectId:   userId,
+				SubjectType: "user",
+				Relation:    "member",
+				ObjectType:  "group",
+				ObjectId:    v,
+			}})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (u UsersResourceHandler) addUserToGroup(ctx context.Context, userId, group string) error {
+	rel, err := u.dirClient.Reader.GetRelations(ctx, &dsr.GetRelationsRequest{
+		SubjectType: "user",
+		SubjectId:   userId,
+		ObjectType:  "group",
+		ObjectId:    group,
+		Relation:    "member",
+	})
+	if err != nil {
+		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrRelationNotFound) {
+			_, err = u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
+				Relation: &dsc.Relation{
+					SubjectId:   userId,
+					SubjectType: "user",
+					Relation:    "member",
+					ObjectType:  "group",
+					ObjectId:    group,
+				}})
+			return err
+		}
+		return err
+	}
+
+	if rel != nil {
+		return serrors.ScimErrorUniqueness
+	}
+	return nil
+}
+
+func (u UsersResourceHandler) removeUserFromGroup(ctx context.Context, userId, group string) error {
+	rel, err := u.dirClient.Reader.GetRelations(ctx, &dsr.GetRelationsRequest{
+		SubjectType: "user",
+		SubjectId:   userId,
+		ObjectType:  "group",
+		ObjectId:    group,
+		Relation:    "member",
+	})
+	if err != nil {
+		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrRelationNotFound) {
+			return serrors.ScimErrorMutability
+		}
+		return err
+	}
+
+	if rel != nil {
+		return serrors.ScimErrorUniqueness
+	}
+	return nil
 }
 
 func objectToResource(object *dsc.Object, meta scim.Meta) scim.Resource {
 	// use pid as external id?
 	eID := optional.String{}
+	attr := object.Properties.AsMap()
+	delete(attr, "password")
 
 	return scim.Resource{
 		ID:         object.Id,
 		ExternalID: eID,
-		Attributes: object.Properties.AsMap(),
+		Attributes: attr,
 		Meta:       meta,
 	}
 }
