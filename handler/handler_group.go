@@ -160,9 +160,3 @@ func (u GroupResourceHandler) Delete(r *http.Request, id string) error {
 
 	return err
 }
-
-func (u GroupResourceHandler) Patch(r *http.Request, id string, operations []scim.PatchOperation) (scim.Resource, error) {
-	return scim.Resource{}, &serrors.ScimError{
-		Status: http.StatusNotImplemented,
-	}
-}

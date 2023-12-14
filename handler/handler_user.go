@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"log"
 	"net/http"
 
 	cerr "github.com/aserto-dev/errors"
@@ -18,7 +19,7 @@ import (
 
 	"github.com/elimity-com/scim"
 	"github.com/elimity-com/scim/optional"
-	filter "github.com/scim2/filter-parser/v2"
+	"github.com/scim2/filter-parser/v2"
 )
 
 type UsersResourceHandler struct {
@@ -38,6 +39,7 @@ func NewUsersResourceHandler(cfg *config.Config) (*UsersResourceHandler, error) 
 }
 
 func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAttributes) (scim.Resource, error) {
+	log.Println("CREATE", attributes)
 	object, err := resourceAttrToObject(attributes, "user", attributes["userName"].(string))
 	if err != nil {
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
@@ -92,39 +94,17 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 		}
 	}
 
-	if attributes["emails"] != nil {
+	if attributes["emails"] != nil && u.cfg.SCIM.CreateEmailIdentities {
 		for _, m := range attributes["emails"].([]interface{}) {
 			email := m.(map[string]interface{})
-			propsMap := make(map[string]interface{})
-			propsMap["kind"] = "IDENTITY_KIND_EMAIL"
-			props, err := structpb.NewStruct(propsMap)
 			if err != nil {
 				return scim.Resource{}, err
 			}
-
 			if email["value"].(string) == attributes["userName"].(string) {
 				continue
 			}
 
-			_, err = u.dirClient.Writer.SetObject(r.Context(), &dsw.SetObjectRequest{
-				Object: &dsc.Object{
-					Type:       "identity",
-					Id:         email["value"].(string),
-					Properties: props,
-				},
-			})
-			if err != nil {
-				return scim.Resource{}, err
-			}
-
-			_, err = u.dirClient.Writer.SetRelation(r.Context(), &dsw.SetRelationRequest{
-				Relation: &dsc.Relation{
-					SubjectId:   resp.Result.Id,
-					SubjectType: "user",
-					Relation:    "identifier",
-					ObjectType:  "identity",
-					ObjectId:    email["value"].(string),
-				}})
+			err = u.setIdentity(r.Context(), resp.Result.Id, email["value"].(string), "IDENTITY_KIND_EMAIL")
 			if err != nil {
 				return scim.Resource{}, err
 			}
@@ -142,6 +122,7 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 }
 
 func (u UsersResourceHandler) Get(r *http.Request, id string) (scim.Resource, error) {
+	log.Println("GET", id)
 	resp, err := u.dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
 		ObjectType:    "user",
 		ObjectId:      id,
@@ -166,6 +147,7 @@ func (u UsersResourceHandler) Get(r *http.Request, id string) (scim.Resource, er
 }
 
 func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestParams) (scim.Page, error) {
+	log.Println("GETALL", params)
 	var (
 		resources = make([]scim.Resource, 0)
 	)
@@ -221,6 +203,7 @@ func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 }
 
 func (u UsersResourceHandler) Replace(r *http.Request, id string, attributes scim.ResourceAttributes) (scim.Resource, error) {
+	log.Println("REPLACE", id, attributes)
 	getObjResp, err := u.dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
 		ObjectType:    "user",
 		ObjectId:      id,
@@ -266,6 +249,7 @@ func (u UsersResourceHandler) Replace(r *http.Request, id string, attributes sci
 }
 
 func (u UsersResourceHandler) Delete(r *http.Request, id string) error {
+	log.Println("DELETE", id)
 	relations, err := u.dirClient.Reader.GetRelations(r.Context(), &dsr.GetRelationsRequest{
 		SubjectType: "user",
 		SubjectId:   id,
@@ -302,72 +286,6 @@ func (u UsersResourceHandler) Delete(r *http.Request, id string) error {
 	}
 
 	return err
-}
-
-func (u UsersResourceHandler) Patch(r *http.Request, id string, operations []scim.PatchOperation) (scim.Resource, error) {
-	getObjResp, err := u.dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
-		ObjectType:    "user",
-		ObjectId:      id,
-		WithRelations: true,
-	})
-	if err != nil {
-		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
-			return scim.Resource{}, serrors.ScimErrorResourceNotFound(id)
-		}
-		return scim.Resource{}, err
-	}
-
-	object, err := resourceAttrToObject(getObjResp.Result.Properties.AsMap(), "user", id)
-	if err != nil {
-		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
-	}
-
-	for _, op := range operations {
-		switch op.Op {
-		case scim.PatchOperationAdd:
-			if op.Path != nil && op.Path.AttributePath.AttributeName == "groups" {
-				err = u.addUserToGroup(r.Context(), id, op.Value.(string))
-				if err != nil {
-					return scim.Resource{}, err
-				}
-			}
-		case scim.PatchOperationRemove:
-			if op.Path != nil && op.Path.AttributePath.AttributeName == "groups" {
-				err = u.removeUserFromGroup(r.Context(), id, op.Value.(string))
-				if err != nil {
-					return scim.Resource{}, err
-				}
-			}
-		case scim.PatchOperationReplace:
-			if op.Path != nil && op.Path.AttributePath.AttributeName == "groups" {
-				err = u.removeUserFromGroup(r.Context(), id, op.Value.(string))
-				if err != nil {
-					return scim.Resource{}, err
-				}
-				err = u.addUserToGroup(r.Context(), id, op.Value.(string))
-				if err != nil {
-					return scim.Resource{}, err
-				}
-			}
-		}
-	}
-
-	resp, err := u.dirClient.Writer.SetObject(r.Context(), &dsw.SetObjectRequest{
-		Object: object,
-	})
-	if err != nil {
-		return scim.Resource{}, err
-	}
-
-	createdAt := resp.Result.CreatedAt.AsTime()
-	updatedAt := resp.Result.UpdatedAt.AsTime()
-	resource := objectToResource(resp.Result, scim.Meta{
-		Created:      &createdAt,
-		LastModified: &updatedAt,
-		Version:      resp.Result.Etag,
-	})
-
-	return resource, nil
 }
 
 func (u UsersResourceHandler) setUserGroups(ctx context.Context, userId string, groups []string) error {
@@ -412,7 +330,7 @@ func (u UsersResourceHandler) setUserGroups(ctx context.Context, userId string, 
 }
 
 func (u UsersResourceHandler) addUserToGroup(ctx context.Context, userId, group string) error {
-	rel, err := u.dirClient.Reader.GetRelations(ctx, &dsr.GetRelationsRequest{
+	rel, err := u.dirClient.Reader.GetRelation(ctx, &dsr.GetRelationRequest{
 		SubjectType: "user",
 		SubjectId:   userId,
 		ObjectType:  "group",
@@ -441,7 +359,7 @@ func (u UsersResourceHandler) addUserToGroup(ctx context.Context, userId, group 
 }
 
 func (u UsersResourceHandler) removeUserFromGroup(ctx context.Context, userId, group string) error {
-	rel, err := u.dirClient.Reader.GetRelations(ctx, &dsr.GetRelationsRequest{
+	_, err := u.dirClient.Reader.GetRelation(ctx, &dsr.GetRelationRequest{
 		SubjectType: "user",
 		SubjectId:   userId,
 		ObjectType:  "group",
@@ -455,10 +373,54 @@ func (u UsersResourceHandler) removeUserFromGroup(ctx context.Context, userId, g
 		return err
 	}
 
-	if rel != nil {
-		return serrors.ScimErrorUniqueness
+	_, err = u.dirClient.Writer.DeleteRelation(ctx, &dsw.DeleteRelationRequest{
+		SubjectType: "user",
+		SubjectId:   userId,
+		ObjectType:  "group",
+		ObjectId:    group,
+		Relation:    "member",
+	})
+	return err
+}
+
+func (u UsersResourceHandler) setIdentity(ctx context.Context, userId, identity, kind string) error {
+	propsMap := make(map[string]interface{})
+	propsMap["kind"] = kind
+	props, err := structpb.NewStruct(propsMap)
+	if err != nil {
+		return err
 	}
-	return nil
+
+	_, err = u.dirClient.Writer.SetObject(ctx, &dsw.SetObjectRequest{
+		Object: &dsc.Object{
+			Type:       "identity",
+			Id:         identity,
+			Properties: props,
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
+		Relation: &dsc.Relation{
+			SubjectId:   userId,
+			SubjectType: "user",
+			Relation:    "identifier",
+			ObjectType:  "identity",
+			ObjectId:    identity,
+		}})
+	return err
+}
+
+func (u UsersResourceHandler) removeIdentity(ctx context.Context, identity string) error {
+	_, err := u.dirClient.Writer.DeleteObject(ctx, &dsw.DeleteObjectRequest{
+		ObjectType:    "identity",
+		ObjectId:      identity,
+		WithRelations: true,
+	})
+
+	return err
 }
 
 func objectToResource(object *dsc.Object, meta scim.Meta) scim.Resource {
@@ -481,15 +443,17 @@ func resourceAttrToObject(resourceAttributes scim.ResourceAttributes, objectType
 		return nil, err
 	}
 
-	var userName string
-	if resourceAttributes["userName"] != nil {
-		userName = resourceAttributes["userName"].(string)
+	var displayName string
+	if resourceAttributes["displayName"] != nil {
+		displayName = resourceAttributes["displayName"].(string)
+	} else {
+		displayName = id
 	}
 	object := &dsc.Object{
 		Type:        objectType,
 		Properties:  props,
 		Id:          id,
-		DisplayName: userName,
+		DisplayName: displayName,
 	}
 	return object, nil
 }

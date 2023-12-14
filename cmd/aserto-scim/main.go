@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/aserto-dev/scim/handler"
@@ -18,9 +19,6 @@ import (
 )
 
 var (
-	// flagAddress    string
-	// flagTenantID   string
-	// flagAPIKey     string
 	flagConfigPath string
 )
 
@@ -48,11 +46,7 @@ var cmdRun = &cobra.Command{
 
 // nolint: gochecknoinits
 func init() {
-	// cmdRun.Flags().StringVarP(&flagAddress, "address", "a", "directory.eng.aserto.com:8443", "directory address")
-	// cmdRun.Flags().StringVarP(&flagTenantID, "tenant-id", "t", "", "tenant ID")
-	// cmdRun.Flags().StringVarP(&flagAPIKey, "api-key", "k", "", "API key")
 	cmdRun.Flags().StringVarP(&flagConfigPath, "config", "c", "", "config path")
-
 	rootCmd.AddCommand(cmdRun)
 }
 
@@ -91,7 +85,7 @@ func start(cfgPath string) error {
 
 	groupHandler, err := handler.NewGroupResourceHandler(cfg)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	groupType := scim.ResourceType{
@@ -123,8 +117,9 @@ func start(cfgPath string) error {
 	}
 
 	app := new(application)
-	app.auth.username = cfg.Server.Auth.Username
-	app.auth.password = cfg.Server.Auth.Password
+	app.username = cfg.Server.Auth.Username
+	app.password = cfg.Server.Auth.Password
+	app.token = cfg.Server.Auth.Token
 
 	srv := &http.Server{
 		Addr:         cfg.Server.ListenAddress,
@@ -138,10 +133,9 @@ func start(cfgPath string) error {
 }
 
 type application struct {
-	auth struct {
-		username string
-		password string
-	}
+	username string
+	password string
+	token    string
 }
 
 func (app *application) basicAuth(next http.HandlerFunc) http.HandlerFunc {
@@ -150,13 +144,22 @@ func (app *application) basicAuth(next http.HandlerFunc) http.HandlerFunc {
 		if ok {
 			usernameHash := sha256.Sum256([]byte(username))
 			passwordHash := sha256.Sum256([]byte(password))
-			expectedUsernameHash := sha256.Sum256([]byte(app.auth.username))
-			expectedPasswordHash := sha256.Sum256([]byte(app.auth.password))
+			expectedUsernameHash := sha256.Sum256([]byte(app.username))
+			expectedPasswordHash := sha256.Sum256([]byte(app.password))
 
 			usernameMatch := (subtle.ConstantTimeCompare(usernameHash[:], expectedUsernameHash[:]) == 1)
 			passwordMatch := (subtle.ConstantTimeCompare(passwordHash[:], expectedPasswordHash[:]) == 1)
 
 			if usernameMatch && passwordMatch {
+				next.ServeHTTP(w, r)
+				return
+			}
+		}
+
+		reqToken := r.Header.Get("Authorization")
+		splitToken := strings.Split(reqToken, "Bearer ")
+		if len(splitToken) == 2 {
+			if subtle.ConstantTimeCompare([]byte(app.token), []byte(splitToken[1])) == 1 {
 				next.ServeHTTP(w, r)
 				return
 			}
