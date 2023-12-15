@@ -1,8 +1,8 @@
 package groups
 
 import (
-	"github.com/aserto-dev/scim/directory"
 	"github.com/aserto-dev/scim/pkg/config"
+	"github.com/aserto-dev/scim/pkg/directory"
 )
 
 type GroupResourceHandler struct {

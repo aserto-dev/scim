@@ -1,6 +1,7 @@
 package users
 
 import (
+	"context"
 	"log"
 	"net/http"
 
@@ -42,21 +43,15 @@ func (u UsersResourceHandler) Get(r *http.Request, id string) (scim.Resource, er
 
 func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestParams) (scim.Page, error) {
 	log.Println("GETALL", params)
+
 	var (
 		resources = make([]scim.Resource, 0)
+		pageToken = ""
+		err       error
+		f         filter.AttributeExpression
+		pageSize  = 100
+		skipIndex = 1 // start index is 1-based
 	)
-
-	resp, err := u.dirClient.Reader.GetObjects(r.Context(), &dsr.GetObjectsRequest{
-		ObjectType: "user",
-		Page: &dsc.PaginationRequest{
-			Size: int32(params.Count),
-		},
-	})
-	if err != nil {
-		return scim.Page{}, err
-	}
-
-	var f filter.AttributeExpression
 
 	if params.Filter != nil {
 		f, err = filter.ParseAttrExp([]byte(params.Filter.(*filter.AttributeExpression).String()))
@@ -65,28 +60,57 @@ func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 		}
 	}
 
-	for _, v := range resp.Results {
-		createdAt := v.CreatedAt.AsTime()
-		updatedAt := v.UpdatedAt.AsTime()
-		resource := common.ObjectToResource(v, scim.Meta{
-			Created:      &createdAt,
-			LastModified: &updatedAt,
-			Version:      v.Etag,
-		})
+	if params.Count != 0 && params.Count < pageSize {
+		pageSize = params.Count
+	}
 
-		if params.Filter != nil {
-			switch f.Operator {
-			case filter.EQ:
-				if resource.Attributes[f.AttributePath.AttributeName] == f.CompareValue {
-					resources = append(resources, resource)
+	for {
+		resp, err := u.getUsers(r.Context(), pageSize, pageToken)
+		if err != nil {
+			return scim.Page{}, err
+		}
+
+		pageToken = resp.Page.NextToken
+
+		for _, v := range resp.Results {
+			insert := false
+			createdAt := v.CreatedAt.AsTime()
+			updatedAt := v.UpdatedAt.AsTime()
+			resource := common.ObjectToResource(v, scim.Meta{
+				Created:      &createdAt,
+				LastModified: &updatedAt,
+				Version:      v.Etag,
+			})
+
+			if params.Filter != nil {
+				switch f.Operator {
+				case filter.EQ:
+					if resource.Attributes[f.AttributePath.AttributeName] == f.CompareValue {
+						insert = true
+					}
+				case filter.NE:
+					if resource.Attributes[f.AttributePath.AttributeName] != f.CompareValue {
+						insert = true
+					}
 				}
-			case filter.NE:
-				if resource.Attributes[f.AttributePath.AttributeName] != f.CompareValue {
-					resources = append(resources, resource)
-				}
+			} else {
+				insert = true
 			}
-		} else {
-			resources = append(resources, resource)
+			if insert {
+				if skipIndex <= params.StartIndex {
+					skipIndex++
+					continue
+				}
+				resources = append(resources, resource)
+			}
+
+			if len(resources) == params.Count {
+				break
+			}
+		}
+
+		if len(resources) >= pageSize || pageToken == "" {
+			break
 		}
 	}
 
@@ -94,4 +118,14 @@ func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 		TotalResults: len(resources),
 		Resources:    resources,
 	}, nil
+}
+
+func (u UsersResourceHandler) getUsers(ctx context.Context, count int, pageToken string) (*dsr.GetObjectsResponse, error) {
+	return u.dirClient.Reader.GetObjects(ctx, &dsr.GetObjectsRequest{
+		ObjectType: "user",
+		Page: &dsc.PaginationRequest{
+			Size:  int32(count),
+			Token: pageToken,
+		},
+	})
 }
