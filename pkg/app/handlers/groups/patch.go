@@ -1,4 +1,4 @@
-package handler
+package groups
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	dsr "github.com/aserto-dev/go-directory/aserto/directory/reader/v3"
 	dsw "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
 	"github.com/aserto-dev/go-directory/pkg/derr"
+	"github.com/aserto-dev/scim/pkg/common"
 	"github.com/elimity-com/scim"
 	serrors "github.com/elimity-com/scim/errors"
 	"github.com/pkg/errors"
@@ -67,7 +68,7 @@ func (u GroupResourceHandler) Patch(r *http.Request, id string, operations []sci
 
 	createdAt := resp.Result.CreatedAt.AsTime()
 	updatedAt := resp.Result.UpdatedAt.AsTime()
-	resource := objectToResource(resp.Result, scim.Meta{
+	resource := common.ObjectToResource(resp.Result, scim.Meta{
 		Created:      &createdAt,
 		LastModified: &updatedAt,
 		Version:      resp.Result.Etag,
