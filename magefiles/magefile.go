@@ -5,12 +5,10 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/aserto-dev/mage-loot/common"
 	"github.com/aserto-dev/mage-loot/deps"
 	"github.com/magefile/mage/mg"
-	"github.com/pkg/errors"
 )
 
 func init() {
@@ -56,30 +54,5 @@ func Release() error {
 		return fmt.Errorf("GITHUB_TOKEN environment variable is undefined")
 	}
 
-	if err := writeVersion(); err != nil {
-		return err
-	}
-
 	return common.Release("--rm-dist")
-}
-
-func writeVersion() error {
-	// get tag.
-	version, err := exec.Command("git", "describe", "--tags").Output()
-	if err != nil {
-		return errors.Wrap(err, "failed to get current git tag")
-	}
-
-	file, err := os.Create("VERSION.txt")
-	if err != nil {
-		return errors.Wrap(err, "failed to create version file")
-	}
-
-	defer file.Close()
-
-	if _, err := file.Write(version); err != nil {
-		return errors.Wrap(err, "failed to write to version file")
-	}
-
-	return file.Sync()
 }
