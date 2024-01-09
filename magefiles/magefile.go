@@ -13,8 +13,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const containerImage string = "topaz"
-
 func init() {
 	os.Setenv("GO_VERSION", "1.20")
 }

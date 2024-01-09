@@ -1,4 +1,4 @@
-module github.com/aserto-dev/topaz/magefiles
+module github.com/aserto-dev/scim/magefiles
 
 go 1.20
 
