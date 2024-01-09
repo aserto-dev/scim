@@ -7,6 +7,7 @@ require (
 	github.com/aserto-dev/go-aserto v0.30.0
 	github.com/aserto-dev/go-directory v0.30.5
 	github.com/elimity-com/scim v0.0.0-20230426070224-941a5eac92f3
+	github.com/magefile/mage v1.15.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/scim2/filter-parser/v2 v2.2.0
@@ -27,7 +28,6 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.18.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/magefile/mage v1.15.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect

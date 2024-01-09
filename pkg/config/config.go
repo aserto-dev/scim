@@ -13,18 +13,26 @@ import (
 type Config struct {
 	Directory client.Config `json:"directory"`
 	Server    struct {
-		ListenAddress string `json:"listen_address"`
-		Auth          struct {
-			Username string `json:"username"`
-			Password string `json:"password"`
-			Token    string `json:"token"`
-		} `json:"auth"`
+		ListenAddress string     `json:"listen_address"`
+		Auth          AuthConfig `json:"auth"`
 	} `json:"server"`
 
 	SCIM struct {
 		CreateEmailIdentities bool `json:"create_email_identities"`
 		CreateRoleGroups      bool `json:"create_role_groups"`
 	} `json:"scim"`
+}
+
+type AuthConfig struct {
+	Basic struct {
+		Enabled  bool   `json:"enabled"`
+		Username string `json:"username"`
+		Password string `json:"password"`
+	} `json:"basic"`
+	Bearer struct {
+		Enabled bool   `json:"enabled"`
+		Token   string `json:"token"`
+	} `json:"bearer"`
 }
 
 func NewConfig(configPath string) (*Config, error) { // nolint // function will contain repeating statements for defaults
@@ -52,6 +60,8 @@ func NewConfig(configPath string) (*Config, error) { // nolint // function will 
 
 	// Set defaults.
 	v.SetDefault("server.listen_address", ":8080")
+	v.SetDefault("server.auth.basic.enabled", "false")
+	v.SetDefault("server.auth.bearer.enabled", "false")
 
 	configExists, err := fileExists(file)
 	if err != nil {

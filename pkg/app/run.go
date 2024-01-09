@@ -72,13 +72,11 @@ func Run(cfgPath string) error {
 	}
 
 	app := new(application)
-	app.username = cfg.Server.Auth.Username
-	app.password = cfg.Server.Auth.Password
-	app.token = cfg.Server.Auth.Token
+	app.cfg = &cfg.Server.Auth
 
 	srv := &http.Server{
 		Addr:         cfg.Server.ListenAddress,
-		Handler:      app.basicAuth(server.ServeHTTP),
+		Handler:      app.auth(server.ServeHTTP),
 		IdleTimeout:  time.Minute,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
@@ -88,19 +86,22 @@ func Run(cfgPath string) error {
 }
 
 type application struct {
-	username string
-	password string
-	token    string
+	cfg *config.AuthConfig
 }
 
-func (app *application) basicAuth(next http.HandlerFunc) http.HandlerFunc {
+func (app *application) auth(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !app.cfg.Basic.Enabled && !app.cfg.Bearer.Enabled {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		username, password, ok := r.BasicAuth()
-		if ok {
+		if ok && app.cfg.Basic.Enabled {
 			usernameHash := sha256.Sum256([]byte(username))
 			passwordHash := sha256.Sum256([]byte(password))
-			expectedUsernameHash := sha256.Sum256([]byte(app.username))
-			expectedPasswordHash := sha256.Sum256([]byte(app.password))
+			expectedUsernameHash := sha256.Sum256([]byte(app.cfg.Basic.Username))
+			expectedPasswordHash := sha256.Sum256([]byte(app.cfg.Basic.Password))
 
 			usernameMatch := (subtle.ConstantTimeCompare(usernameHash[:], expectedUsernameHash[:]) == 1)
 			passwordMatch := (subtle.ConstantTimeCompare(passwordHash[:], expectedPasswordHash[:]) == 1)
@@ -109,14 +110,14 @@ func (app *application) basicAuth(next http.HandlerFunc) http.HandlerFunc {
 				next.ServeHTTP(w, r)
 				return
 			}
-		}
-
-		reqToken := r.Header.Get("Authorization")
-		splitToken := strings.Split(reqToken, "Bearer ")
-		if len(splitToken) == 2 {
-			if subtle.ConstantTimeCompare([]byte(app.token), []byte(splitToken[1])) == 1 {
-				next.ServeHTTP(w, r)
-				return
+		} else if app.cfg.Bearer.Enabled {
+			reqToken := r.Header.Get("Authorization")
+			splitToken := strings.Split(reqToken, "Bearer ")
+			if len(splitToken) == 2 {
+				if subtle.ConstantTimeCompare([]byte(app.cfg.Bearer.Token), []byte(splitToken[1])) == 1 {
+					next.ServeHTTP(w, r)
+					return
+				}
 			}
 		}
 
