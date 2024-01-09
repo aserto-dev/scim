@@ -47,7 +47,7 @@ func (u UsersResourceHandler) Patch(r *http.Request, id string, operations []sci
 				return scim.Resource{}, err
 			}
 		case scim.PatchOperationReplace:
-			err := u.handlePatchOPReplace(r.Context(), object, op)
+			err := u.handlePatchOPReplace(object, op)
 			if err != nil {
 				return scim.Resource{}, err
 			}
@@ -82,14 +82,14 @@ func (u UsersResourceHandler) handlePatchOPAdd(ctx context.Context, object *dsc.
 	objectProps := object.Properties.AsMap()
 	if op.Path == nil || op.Path.ValueExpression == nil {
 		// simple add property
-		switch op.Value.(type) {
+		switch v := op.Value.(type) {
 		case string:
 			if objectProps[op.Path.AttributePath.AttributeName] != nil {
 				return serrors.ScimErrorUniqueness
 			}
 			objectProps[op.Path.AttributePath.AttributeName] = op.Value
 		case map[string]interface{}:
-			value := op.Value.(map[string]interface{})
+			value := v
 			for k, v := range value {
 				if objectProps[k] != nil {
 					return serrors.ScimErrorUniqueness
@@ -104,7 +104,7 @@ func (u UsersResourceHandler) handlePatchOPAdd(ctx context.Context, object *dsc.
 		}
 
 		switch op.Path.AttributePath.AttributeName {
-		case "emails", "groups":
+		case Emails, Groups:
 			properties := make(map[string]interface{})
 			if op.Path.ValueExpression != nil {
 				if objectProps[op.Path.AttributePath.AttributeName] != nil {
@@ -131,12 +131,12 @@ func (u UsersResourceHandler) handlePatchOPAdd(ctx context.Context, object *dsc.
 				properties[*op.Path.SubAttribute] = op.Value
 			}
 
-			if op.Path.AttributePath.AttributeName == "emails" && u.cfg.SCIM.CreateEmailIdentities {
+			if op.Path.AttributePath.AttributeName == Emails && u.cfg.SCIM.CreateEmailIdentities {
 				err = u.setIdentity(ctx, object.Id, op.Value.(string), "IDENTITY_KIND_EMAIL")
 				if err != nil {
 					return err
 				}
-			} else if op.Path.AttributePath.AttributeName == "groups" {
+			} else if op.Path.AttributePath.AttributeName == Groups {
 				err = u.addUserToGroup(ctx, object.Id, op.Value.(string))
 				if err != nil {
 					return err
@@ -154,7 +154,7 @@ func (u UsersResourceHandler) handlePatchOPRemove(ctx context.Context, object *d
 	objectProps := object.Properties.AsMap()
 	var oldValue interface{}
 
-	switch objectProps[op.Path.AttributePath.AttributeName].(type) {
+	switch value := objectProps[op.Path.AttributePath.AttributeName].(type) {
 	case string:
 		oldValue = objectProps[op.Path.AttributePath.AttributeName]
 		delete(objectProps, op.Path.AttributePath.AttributeName)
@@ -166,7 +166,7 @@ func (u UsersResourceHandler) handlePatchOPRemove(ctx context.Context, object *d
 
 		index := -1
 		if ftr.Operator == filter.EQ {
-			for i, v := range objectProps[op.Path.AttributePath.AttributeName].([]interface{}) {
+			for i, v := range value {
 				originalValue := v.(map[string]interface{})
 				if originalValue[ftr.AttributePath.AttributeName].(string) == ftr.CompareValue {
 					oldValue = originalValue
@@ -180,13 +180,13 @@ func (u UsersResourceHandler) handlePatchOPRemove(ctx context.Context, object *d
 		}
 	}
 
-	if op.Path.AttributePath.AttributeName == "emails" && u.cfg.SCIM.CreateEmailIdentities {
+	if op.Path.AttributePath.AttributeName == Emails && u.cfg.SCIM.CreateEmailIdentities {
 		email := oldValue.(map[string]interface{})["value"].(string)
 		err = u.removeIdentity(ctx, email)
 		if err != nil {
 			return err
 		}
-	} else if op.Path.AttributePath.AttributeName == "groups" {
+	} else if op.Path.AttributePath.AttributeName == Groups {
 		group := oldValue.(map[string]interface{})["value"].(string)
 		err = u.removeUserFromGroup(ctx, object.Id, group)
 		if err != nil {
@@ -198,15 +198,14 @@ func (u UsersResourceHandler) handlePatchOPRemove(ctx context.Context, object *d
 	return err
 }
 
-func (u UsersResourceHandler) handlePatchOPReplace(ctx context.Context, object *dsc.Object, op scim.PatchOperation) error {
+func (u UsersResourceHandler) handlePatchOPReplace(object *dsc.Object, op scim.PatchOperation) error {
 	var err error
 	objectProps := object.Properties.AsMap()
 
-	switch op.Value.(type) {
+	switch value := op.Value.(type) {
 	case string:
 		objectProps[op.Path.AttributePath.AttributeName] = op.Value
 	case map[string]interface{}:
-		value := op.Value.(map[string]interface{})
 		for k, v := range value {
 			objectProps[k] = v
 		}

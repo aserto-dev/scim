@@ -47,7 +47,7 @@ func (u GroupResourceHandler) Patch(r *http.Request, id string, operations []sci
 				return scim.Resource{}, err
 			}
 		case scim.PatchOperationReplace:
-			err := u.handlePatchOPReplace(r.Context(), object, op)
+			err := u.handlePatchOPReplace(object, op)
 			if err != nil {
 				return scim.Resource{}, err
 			}
@@ -82,14 +82,13 @@ func (u GroupResourceHandler) handlePatchOPAdd(ctx context.Context, object *dsc.
 	objectProps := object.Properties.AsMap()
 	if op.Path == nil || op.Path.ValueExpression == nil {
 		// simple add property
-		switch op.Value.(type) {
+		switch value := op.Value.(type) {
 		case string:
 			if objectProps[op.Path.AttributePath.AttributeName] != nil {
 				return serrors.ScimErrorUniqueness
 			}
 			objectProps[op.Path.AttributePath.AttributeName] = op.Value
 		case map[string]interface{}:
-			value := op.Value.(map[string]interface{})
 			for k, v := range value {
 				if objectProps[k] != nil {
 					return serrors.ScimErrorUniqueness
@@ -97,14 +96,14 @@ func (u GroupResourceHandler) handlePatchOPAdd(ctx context.Context, object *dsc.
 				objectProps[k] = v
 			}
 		case []interface{}:
-			for _, v := range op.Value.([]interface{}) {
-				switch v.(type) {
+			for _, v := range value {
+				switch val := v.(type) {
 				case string:
 					objectProps[op.Path.AttributePath.AttributeName] = append(objectProps[op.Path.AttributePath.AttributeName].([]interface{}), v)
 				case map[string]interface{}:
-					properties := v.(map[string]interface{})
+					properties := val
 					objectProps[op.Path.AttributePath.AttributeName] = append(objectProps[op.Path.AttributePath.AttributeName].([]interface{}), properties)
-					if op.Path.AttributePath.AttributeName == "members" {
+					if op.Path.AttributePath.AttributeName == GroupMembers {
 						err = u.addUserToGroup(ctx, properties["value"].(string), object.Id)
 						if err != nil {
 							return err
@@ -124,7 +123,7 @@ func (u GroupResourceHandler) handlePatchOPRemove(ctx context.Context, object *d
 	objectProps := object.Properties.AsMap()
 	var oldValue interface{}
 
-	switch objectProps[op.Path.AttributePath.AttributeName].(type) {
+	switch value := objectProps[op.Path.AttributePath.AttributeName].(type) {
 	case string:
 		oldValue = objectProps[op.Path.AttributePath.AttributeName]
 		delete(objectProps, op.Path.AttributePath.AttributeName)
@@ -136,7 +135,7 @@ func (u GroupResourceHandler) handlePatchOPRemove(ctx context.Context, object *d
 
 		index := -1
 		if ftr.Operator == filter.EQ {
-			for i, v := range objectProps[op.Path.AttributePath.AttributeName].([]interface{}) {
+			for i, v := range value {
 				originalValue := v.(map[string]interface{})
 				if originalValue[ftr.AttributePath.AttributeName].(string) == ftr.CompareValue {
 					oldValue = originalValue
@@ -150,7 +149,7 @@ func (u GroupResourceHandler) handlePatchOPRemove(ctx context.Context, object *d
 		}
 	}
 
-	if op.Path.AttributePath.AttributeName == "members" {
+	if op.Path.AttributePath.AttributeName == GroupMembers {
 		user := oldValue.(map[string]interface{})["value"].(string)
 		err = u.removeUserFromGroup(ctx, user, object.Id)
 		if err != nil {
@@ -162,15 +161,14 @@ func (u GroupResourceHandler) handlePatchOPRemove(ctx context.Context, object *d
 	return err
 }
 
-func (u GroupResourceHandler) handlePatchOPReplace(ctx context.Context, object *dsc.Object, op scim.PatchOperation) error {
+func (u GroupResourceHandler) handlePatchOPReplace(object *dsc.Object, op scim.PatchOperation) error {
 	var err error
 	objectProps := object.Properties.AsMap()
 
-	switch op.Value.(type) {
+	switch value := op.Value.(type) {
 	case string:
 		objectProps[op.Path.AttributePath.AttributeName] = op.Value
 	case map[string]interface{}:
-		value := op.Value.(map[string]interface{})
 		for k, v := range value {
 			objectProps[k] = v
 		}
@@ -180,10 +178,10 @@ func (u GroupResourceHandler) handlePatchOPReplace(ctx context.Context, object *
 	return err
 }
 
-func (u GroupResourceHandler) addUserToGroup(ctx context.Context, userId, group string) error {
+func (u GroupResourceHandler) addUserToGroup(ctx context.Context, userID, group string) error {
 	rel, err := u.dirClient.Reader.GetRelation(ctx, &dsr.GetRelationRequest{
 		SubjectType: "user",
-		SubjectId:   userId,
+		SubjectId:   userID,
 		ObjectType:  "group",
 		ObjectId:    group,
 		Relation:    "member",
@@ -192,7 +190,7 @@ func (u GroupResourceHandler) addUserToGroup(ctx context.Context, userId, group 
 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrRelationNotFound) {
 			_, err = u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
 				Relation: &dsc.Relation{
-					SubjectId:   userId,
+					SubjectId:   userID,
 					SubjectType: "user",
 					Relation:    "member",
 					ObjectType:  "group",
@@ -209,10 +207,10 @@ func (u GroupResourceHandler) addUserToGroup(ctx context.Context, userId, group 
 	return nil
 }
 
-func (u GroupResourceHandler) removeUserFromGroup(ctx context.Context, userId, group string) error {
+func (u GroupResourceHandler) removeUserFromGroup(ctx context.Context, userID, group string) error {
 	_, err := u.dirClient.Reader.GetRelation(ctx, &dsr.GetRelationRequest{
 		SubjectType: "user",
-		SubjectId:   userId,
+		SubjectId:   userID,
 		ObjectType:  "group",
 		ObjectId:    group,
 		Relation:    "member",
@@ -226,7 +224,7 @@ func (u GroupResourceHandler) removeUserFromGroup(ctx context.Context, userId, g
 
 	_, err = u.dirClient.Writer.DeleteRelation(ctx, &dsw.DeleteRelationRequest{
 		SubjectType: "user",
-		SubjectId:   userId,
+		SubjectId:   userID,
 		ObjectType:  "group",
 		ObjectId:    group,
 		Relation:    "member",

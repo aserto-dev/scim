@@ -32,7 +32,7 @@ func NewConfig(configPath string) (*Config, error) { // nolint // function will 
 	v := viper.New()
 
 	if configPath != "" {
-		exists, err := fileExists(string(configPath))
+		exists, err := fileExists(configPath)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to determine if config file '%s' exists", configPath)
 		}
@@ -41,7 +41,7 @@ func NewConfig(configPath string) (*Config, error) { // nolint // function will 
 			return nil, errors.Errorf("config file '%s' doesn't exist", configPath)
 		}
 
-		file = string(configPath)
+		file = configPath
 	}
 
 	v.SetConfigType("yaml")

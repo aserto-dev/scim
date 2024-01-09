@@ -1,0 +1,71 @@
+project_name: scim
+
+env:
+  - ORG=aserto-dev
+  - REPO=scim
+
+builds:
+  # https://goreleaser.com/customization/build/
+  - id: aserto-scim
+    main: ./cmd/aserto-scim
+    binary: aserto-scim
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s
+      - -w
+      - -X github.com/{{ .Env.ORG }}/{{ .Env.REPO }}/pkg/version.ver={{.Version}}
+      - -X github.com/{{ .Env.ORG }}/{{ .Env.REPO }}/pkg/version.commit={{.ShortCommit}}
+      - -X github.com/{{ .Env.ORG }}/{{ .Env.REPO }}/pkg/version.date={{.Date}}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  # https://goreleaser.com/customization/archive/
+  - format: zip
+    builds:
+    - aserto-scim
+    files:
+      - LICENSE
+      - README.md
+    name_template: >-
+      aserto-scim_{{ .Os }}_{{- if eq .Arch "amd64" }}x86_64{{- else }}{{ .Arch }}{{ end }}
+
+checksum:
+  # https://goreleaser.com/customization/checksum/
+  name_template: "checksums.txt"
+
+snapshot:
+  # https://goreleaser.com/customization/snapshots/
+  name_template: "{{ .Tag }}"
+
+source:
+  # https://goreleaser.com/customization/source/
+  enabled: false
+
+changelog:
+  # https://goreleaser.com/customization/changelog/
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+release:
+  # https://goreleaser.com/customization/release/
+  github:
+    owner: "{{ .Env.ORG }}"
+    name: "{{ .Env.REPO }}"
+
+  draft: false
+  prerelease: false
+  name_template: "{{.ProjectName}} {{.Tag}}"

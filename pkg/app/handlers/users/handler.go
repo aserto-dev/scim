@@ -15,6 +15,11 @@ import (
 	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
+const (
+	Emails = "emails"
+	Groups = "groups"
+)
+
 type UsersResourceHandler struct {
 	dirClient *directory.DirectoryClient
 	cfg       *config.Config
@@ -31,10 +36,10 @@ func NewUsersResourceHandler(cfg *config.Config) (*UsersResourceHandler, error) 
 	}, nil
 }
 
-func (u UsersResourceHandler) setUserGroups(ctx context.Context, userId string, groups []string) error {
+func (u UsersResourceHandler) setUserGroups(ctx context.Context, userID string, groups []string) error {
 	relations, err := u.dirClient.Reader.GetRelations(ctx, &dsr.GetRelationsRequest{
 		SubjectType: "user",
-		SubjectId:   userId,
+		SubjectId:   userID,
 	})
 	if err != nil {
 		return err
@@ -58,7 +63,7 @@ func (u UsersResourceHandler) setUserGroups(ctx context.Context, userId string, 
 	for _, v := range groups {
 		_, err = u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
 			Relation: &dsc.Relation{
-				SubjectId:   userId,
+				SubjectId:   userID,
 				SubjectType: "user",
 				Relation:    "member",
 				ObjectType:  "group",
@@ -72,10 +77,10 @@ func (u UsersResourceHandler) setUserGroups(ctx context.Context, userId string, 
 	return nil
 }
 
-func (u UsersResourceHandler) addUserToGroup(ctx context.Context, userId, group string) error {
+func (u UsersResourceHandler) addUserToGroup(ctx context.Context, userID, group string) error {
 	rel, err := u.dirClient.Reader.GetRelation(ctx, &dsr.GetRelationRequest{
 		SubjectType: "user",
-		SubjectId:   userId,
+		SubjectId:   userID,
 		ObjectType:  "group",
 		ObjectId:    group,
 		Relation:    "member",
@@ -84,7 +89,7 @@ func (u UsersResourceHandler) addUserToGroup(ctx context.Context, userId, group 
 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrRelationNotFound) {
 			_, err = u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
 				Relation: &dsc.Relation{
-					SubjectId:   userId,
+					SubjectId:   userID,
 					SubjectType: "user",
 					Relation:    "member",
 					ObjectType:  "group",
@@ -101,10 +106,10 @@ func (u UsersResourceHandler) addUserToGroup(ctx context.Context, userId, group 
 	return nil
 }
 
-func (u UsersResourceHandler) removeUserFromGroup(ctx context.Context, userId, group string) error {
+func (u UsersResourceHandler) removeUserFromGroup(ctx context.Context, userID, group string) error {
 	_, err := u.dirClient.Reader.GetRelation(ctx, &dsr.GetRelationRequest{
 		SubjectType: "user",
-		SubjectId:   userId,
+		SubjectId:   userID,
 		ObjectType:  "group",
 		ObjectId:    group,
 		Relation:    "member",
@@ -118,7 +123,7 @@ func (u UsersResourceHandler) removeUserFromGroup(ctx context.Context, userId, g
 
 	_, err = u.dirClient.Writer.DeleteRelation(ctx, &dsw.DeleteRelationRequest{
 		SubjectType: "user",
-		SubjectId:   userId,
+		SubjectId:   userID,
 		ObjectType:  "group",
 		ObjectId:    group,
 		Relation:    "member",
@@ -126,7 +131,7 @@ func (u UsersResourceHandler) removeUserFromGroup(ctx context.Context, userId, g
 	return err
 }
 
-func (u UsersResourceHandler) setIdentity(ctx context.Context, userId, identity, kind string) error {
+func (u UsersResourceHandler) setIdentity(ctx context.Context, userID, identity, kind string) error {
 	propsMap := make(map[string]interface{})
 	propsMap["kind"] = kind
 	props, err := structpb.NewStruct(propsMap)
@@ -147,7 +152,7 @@ func (u UsersResourceHandler) setIdentity(ctx context.Context, userId, identity,
 
 	_, err = u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
 		Relation: &dsc.Relation{
-			SubjectId:   userId,
+			SubjectId:   userID,
 			SubjectType: "user",
 			Relation:    "identifier",
 			ObjectType:  "identity",

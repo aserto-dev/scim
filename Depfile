@@ -1,0 +1,15 @@
+---
+go:
+  sver:
+    importPath: "github.com/aserto-dev/sver/cmd/sver"
+    version: "v1.3.13"
+  goreleaser:
+    importPath: github.com/goreleaser/goreleaser
+    version: "v1.20.0"
+  golangci-lint:
+    importPath: "github.com/golangci/golangci-lint/cmd/golangci-lint"
+    version: "v1.53.3"
+  gotestsum:
+    importPath: "gotest.tools/gotestsum"
+    version: "v1.10.0"
+  

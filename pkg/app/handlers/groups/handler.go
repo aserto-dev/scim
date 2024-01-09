@@ -5,6 +5,10 @@ import (
 	"github.com/aserto-dev/scim/pkg/directory"
 )
 
+const (
+	GroupMembers = "members"
+)
+
 type GroupResourceHandler struct {
 	dirClient *directory.DirectoryClient
 	cfg       *config.Config

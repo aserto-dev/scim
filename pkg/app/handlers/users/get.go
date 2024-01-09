@@ -92,7 +92,11 @@ func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 					if resource.Attributes[f.AttributePath.AttributeName] != f.CompareValue {
 						insert = true
 					}
+				case filter.CO, filter.SW, filter.EW, filter.GT, filter.GE, filter.LT, filter.LE, filter.PR:
+					// TODO: implement
+					return scim.Page{}, serrors.ScimErrorInvalidFilter
 				}
+
 			} else {
 				insert = true
 			}
