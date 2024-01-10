@@ -31,7 +31,7 @@ go run ./cmd/aserto-scim/main.go run -c ./config.yaml
 ### run as docker container
 
 ```
-docker run -p 8080:8080 -v {config directory}:/config:ro ghcr.io/aserto-dev/aserto-scim:latest run -c /config/config.yaml
+docker run -p 8080:8080 -v {config directory}:/config:ro ghcr.io/aserto-dev/scim:latest run -c /config/config.yaml
 ```
 
 ### list users

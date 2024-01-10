@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-const containerImage string = "aserto-scim"
+const containerImage string = "scim"
 
 func init() {
 	os.Setenv("GO_VERSION", "1.20")

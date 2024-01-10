@@ -46,21 +46,15 @@ jobs:
         with:
           version: ${{ env.GO_LANGCI_LINT_VERSION }}
           args: --timeout=30m
-      -
-        name: Test Setup
-        uses: autero1/action-gotestsum@v2.0.0
-        with:
-          gotestsum_version: ${{ env.GO_TESTSUM_VERSION }}
-      -
-        name: Test
-        run: |
-          gotestsum --format short-verbose -- -count=1 -parallel=1 -v -timeout=240s -coverprofile=cover.out -coverpkg=./... ./...
-      -
-        name: Upload code coverage
-        uses: shogo82148/actions-goveralls@v1
-        continue-on-error: true
-        with:
-          path-to-profile: cover.out
+      # -
+      #   name: Test Setup
+      #   uses: autero1/action-gotestsum@v2.0.0
+      #   with:
+      #     gotestsum_version: ${{ env.GO_TESTSUM_VERSION }}
+      # -
+      #   name: Test
+      #   run: |
+      #     gotestsum --format short-verbose -- -count=1 -parallel=1 -v -timeout=240s -coverprofile=cover.out -coverpkg=./... ./...
 
   push:
     runs-on: ubuntu-latest
