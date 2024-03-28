@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aserto-dev/certs"
+	"github.com/aserto-dev/logger"
 	"github.com/aserto-dev/scim/pkg/app/handlers/groups"
 	"github.com/aserto-dev/scim/pkg/app/handlers/users"
 	"github.com/aserto-dev/scim/pkg/config"
@@ -15,13 +17,23 @@ import (
 	"github.com/elimity-com/scim/schema"
 )
 
-func Run(cfgPath string) error {
-	cfg, err := config.NewConfig(cfgPath)
+func Run(cfgPath string, logWriter logger.Writer, errWriter logger.ErrWriter) error {
+	loggerConfig, err := config.NewLoggerConfig(cfgPath)
+	if err != nil {
+		return err
+	}
+	logger, err := logger.NewLogger(logWriter, errWriter, loggerConfig)
+	if err != nil {
+		return err
+	}
+	certGenerator := certs.NewGenerator(logger)
+
+	cfg, err := config.NewConfig(cfgPath, logger, certGenerator)
 	if err != nil {
 		return err
 	}
 
-	userHandler, err := users.NewUsersResourceHandler(cfg)
+	userHandler, err := users.NewUsersResourceHandler(cfg, logger)
 	if err != nil {
 		return err
 	}
@@ -38,7 +50,7 @@ func Run(cfgPath string) error {
 		Handler: userHandler,
 	}
 
-	groupHandler, err := groups.NewGroupResourceHandler(cfg)
+	groupHandler, err := groups.NewGroupResourceHandler(cfg, logger)
 	if err != nil {
 		return err
 	}
@@ -82,7 +94,7 @@ func Run(cfgPath string) error {
 		WriteTimeout: 30 * time.Second,
 	}
 
-	return srv.ListenAndServe()
+	return srv.ListenAndServeTLS(cfg.Server.Certs.TLSCertPath, cfg.Server.Certs.TLSKeyPath)
 }
 
 type application struct {

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/aserto-dev/scim/pkg/app"
 	"github.com/aserto-dev/scim/pkg/version"
@@ -31,7 +32,7 @@ var cmdRun = &cobra.Command{
 	Use:   "run [args]",
 	Short: "Start SCIM service",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return app.Run(flagConfigPath)
+		return app.Run(flagConfigPath, os.Stdout, os.Stderr)
 	},
 }
 

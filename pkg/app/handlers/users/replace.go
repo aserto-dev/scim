@@ -1,7 +1,6 @@
 package users
 
 import (
-	"log"
 	"net/http"
 
 	cerr "github.com/aserto-dev/errors"
@@ -15,7 +14,7 @@ import (
 )
 
 func (u UsersResourceHandler) Replace(r *http.Request, id string, attributes scim.ResourceAttributes) (scim.Resource, error) {
-	log.Println("REPLACE", id, attributes)
+	u.logger.Trace().Str("user_id", id).Any("attributes", attributes).Msg("replacing user")
 	getObjResp, err := u.dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
 		ObjectType:    "user",
 		ObjectId:      id,

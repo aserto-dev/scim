@@ -4,6 +4,9 @@ The Aserto SCIM service uses the SCIM 2.0 protocol to import data into the Asert
 ### sample config.yaml
 ```yaml
 ---
+logging:
+  prod: true
+  log_level: info
 server:
   listen_address: ":8080"
   auth:

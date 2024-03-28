@@ -2,7 +2,6 @@ package users
 
 import (
 	"context"
-	"log"
 	"net/http"
 
 	cerr "github.com/aserto-dev/errors"
@@ -19,7 +18,7 @@ import (
 )
 
 func (u UsersResourceHandler) Patch(r *http.Request, id string, operations []scim.PatchOperation) (scim.Resource, error) {
-	log.Println("PATCH", id, operations)
+	u.logger.Trace().Str("user_id", id).Any("operations", operations).Msg("patching user")
 	getObjResp, err := u.dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
 		ObjectType:    "user",
 		ObjectId:      id,
@@ -62,7 +61,7 @@ func (u UsersResourceHandler) Patch(r *http.Request, id string, operations []sci
 		Object: object,
 	})
 	if err != nil {
-		log.Println(err)
+		u.logger.Err(err).Msg("error setting object")
 		return scim.Resource{}, err
 	}
 

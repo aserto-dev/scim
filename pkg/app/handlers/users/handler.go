@@ -12,6 +12,7 @@ import (
 	"github.com/aserto-dev/scim/pkg/directory"
 	serrors "github.com/elimity-com/scim/errors"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -23,9 +24,11 @@ const (
 type UsersResourceHandler struct {
 	dirClient *directory.DirectoryClient
 	cfg       *config.Config
+	logger    *zerolog.Logger
 }
 
-func NewUsersResourceHandler(cfg *config.Config) (*UsersResourceHandler, error) {
+func NewUsersResourceHandler(cfg *config.Config, logger *zerolog.Logger) (*UsersResourceHandler, error) {
+	usersLogger := logger.With().Str("component", "users").Logger()
 	dirClient, err := directory.GetDirectoryClient(&cfg.Directory)
 	if err != nil {
 		return nil, err
@@ -33,6 +36,7 @@ func NewUsersResourceHandler(cfg *config.Config) (*UsersResourceHandler, error) 
 	return &UsersResourceHandler{
 		dirClient: dirClient,
 		cfg:       cfg,
+		logger:    &usersLogger,
 	}, nil
 }
 

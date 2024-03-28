@@ -2,7 +2,6 @@ package users
 
 import (
 	"context"
-	"log"
 	"net/http"
 
 	cerr "github.com/aserto-dev/errors"
@@ -17,7 +16,7 @@ import (
 )
 
 func (u UsersResourceHandler) Get(r *http.Request, id string) (scim.Resource, error) {
-	log.Println("GET", id)
+	u.logger.Trace().Str("user_id", id).Msg("get user")
 	resp, err := u.dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
 		ObjectType:    "user",
 		ObjectId:      id,
@@ -42,7 +41,7 @@ func (u UsersResourceHandler) Get(r *http.Request, id string) (scim.Resource, er
 }
 
 func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestParams) (scim.Page, error) {
-	log.Println("GETALL", params)
+	u.logger.Trace().Msg("getall users")
 
 	var (
 		resources = make([]scim.Resource, 0)
