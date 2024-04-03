@@ -16,12 +16,19 @@ type DirectoryClient struct {
 func connect(cfg *client.Config) (*client.Connection, error) {
 	ctx := context.Background()
 
-	conn, err := client.NewConnection(ctx,
+	opts := []client.ConnectionOption{
 		client.WithAddr(cfg.Address),
-		client.WithAPIKeyAuth(cfg.APIKey),
-		client.WithTenantID(cfg.TenantID),
 		client.WithInsecure(cfg.Insecure),
-	)
+	}
+
+	if cfg.APIKey != "" {
+		opts = append(opts, client.WithAPIKeyAuth(cfg.APIKey))
+	}
+	if cfg.TenantID != "" {
+		opts = append(opts, client.WithTenantID(cfg.TenantID))
+	}
+
+	conn, err := client.NewConnection(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
