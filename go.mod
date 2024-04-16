@@ -3,13 +3,16 @@ module github.com/aserto-dev/scim
 go 1.20
 
 require (
+	github.com/aserto-dev/certs v0.0.5
 	github.com/aserto-dev/errors v0.0.6
 	github.com/aserto-dev/go-aserto v0.30.0
 	github.com/aserto-dev/go-directory v0.30.5
+	github.com/aserto-dev/logger v0.0.4
 	github.com/elimity-com/scim v0.0.0-20230426070224-941a5eac92f3
 	github.com/magefile/mage v1.15.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
+	github.com/rs/zerolog v1.31.0
 	github.com/scim2/filter-parser/v2 v2.2.0
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.18.0
@@ -32,9 +35,9 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
-	github.com/rs/zerolog v1.31.0 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
+	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.6.0 // indirect

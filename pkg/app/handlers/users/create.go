@@ -1,7 +1,6 @@
 package users
 
 import (
-	"log"
 	"net/http"
 
 	cerr "github.com/aserto-dev/errors"
@@ -16,7 +15,7 @@ import (
 )
 
 func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAttributes) (scim.Resource, error) {
-	log.Println("CREATE", attributes)
+	u.logger.Trace().Any("attributes", attributes).Msg("creating user")
 	object, err := common.ResourceAttributesToObject(attributes, "user", attributes["userName"].(string))
 	if err != nil {
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
@@ -85,6 +84,14 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 			if err != nil {
 				return scim.Resource{}, err
 			}
+		}
+	}
+
+	if attributes["externalId"] != nil {
+		externalID := attributes["externalId"]
+		err = u.setIdentity(r.Context(), resp.Result.Id, externalID.(string), "IDENTITY_KIND_PID")
+		if err != nil {
+			return scim.Resource{}, err
 		}
 	}
 

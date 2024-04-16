@@ -1,7 +1,6 @@
 package users
 
 import (
-	"log"
 	"net/http"
 
 	cerr "github.com/aserto-dev/errors"
@@ -13,7 +12,7 @@ import (
 )
 
 func (u UsersResourceHandler) Delete(r *http.Request, id string) error {
-	log.Println("DELETE", id)
+	u.logger.Trace().Str("user_id", id).Msg("deleting user")
 	relations, err := u.dirClient.Reader.GetRelations(r.Context(), &dsr.GetRelationsRequest{
 		SubjectType: "user",
 		SubjectId:   id,

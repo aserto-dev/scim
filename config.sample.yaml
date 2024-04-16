@@ -1,4 +1,7 @@
 ---
+logging:
+  prod: true
+  log_level: trace
 server:
   listen_address: ":8081"
   auth:
