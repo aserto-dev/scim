@@ -87,6 +87,14 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 		}
 	}
 
+	if attributes["externalId"] != nil {
+		externalID := attributes["externalId"]
+		err = u.setIdentity(r.Context(), resp.Result.Id, externalID.(string), "IDENTITY_KIND_PID")
+		if err != nil {
+			return scim.Resource{}, err
+		}
+	}
+
 	if attributes["groups"] != nil {
 		err = u.setUserGroups(r.Context(), resp.Result.Id, attributes["groups"].([]string))
 		if err != nil {
