@@ -22,18 +22,18 @@ func Run(cfgPath string, logWriter logger.Writer, errWriter logger.ErrWriter) er
 	if err != nil {
 		return err
 	}
-	logger, err := logger.NewLogger(logWriter, errWriter, loggerConfig)
+	scimLogger, err := logger.NewLogger(logWriter, errWriter, loggerConfig)
 	if err != nil {
 		return err
 	}
-	certGenerator := certs.NewGenerator(logger)
+	certGenerator := certs.NewGenerator(scimLogger)
 
-	cfg, err := config.NewConfig(cfgPath, logger, certGenerator)
+	cfg, err := config.NewConfig(cfgPath, scimLogger, certGenerator)
 	if err != nil {
 		return err
 	}
 
-	userHandler, err := users.NewUsersResourceHandler(cfg, logger)
+	userHandler, err := users.NewUsersResourceHandler(cfg, scimLogger)
 	if err != nil {
 		return err
 	}
@@ -50,7 +50,7 @@ func Run(cfgPath string, logWriter logger.Writer, errWriter logger.ErrWriter) er
 		Handler: userHandler,
 	}
 
-	groupHandler, err := groups.NewGroupResourceHandler(cfg, logger)
+	groupHandler, err := groups.NewGroupResourceHandler(cfg, scimLogger)
 	if err != nil {
 		return err
 	}
