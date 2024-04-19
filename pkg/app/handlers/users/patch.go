@@ -131,7 +131,7 @@ func (u UsersResourceHandler) handlePatchOPAdd(ctx context.Context, object *dsc.
 			}
 
 			if op.Path.AttributePath.AttributeName == Emails && u.cfg.SCIM.CreateEmailIdentities {
-				err = u.setIdentity(ctx, object.Id, op.Value.(string), "IDENTITY_KIND_EMAIL")
+				err = u.setIdentity(ctx, object.Id, op.Value.(string), nil)
 				if err != nil {
 					return err
 				}

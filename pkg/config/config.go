@@ -30,8 +30,18 @@ type Config struct {
 
 	SCIM struct {
 		CreateEmailIdentities bool `json:"create_email_identities"`
-		CreateRoleGroups      bool `json:"create_role_groups"`
+		Roles                 struct {
+			CreateRoleGroups bool             `json:"create_role_groups"`
+			MapRolesToGroups bool             `json:"map_roles_to_groups"`
+			RoleMappings     map[string]*Role `json:"role_mappings"`
+		} `json:"roles"`
 	} `json:"scim"`
+}
+
+type Role struct {
+	Value      string `json:"value"`
+	Relation   string `json:"relation"`
+	ObjectType string `json:"object_type"`
 }
 
 type AuthConfig struct {

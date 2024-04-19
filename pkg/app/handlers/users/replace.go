@@ -41,8 +41,20 @@ func (u UsersResourceHandler) Replace(r *http.Request, id string, attributes sci
 		return scim.Resource{}, err
 	}
 
+	err = u.setAllIdentities(r.Context(), id, attributes)
+	if err != nil {
+		return scim.Resource{}, err
+	}
+
 	if attributes["groups"] != nil {
 		err = u.setUserGroups(r.Context(), id, attributes["groups"].([]string))
+		if err != nil {
+			return scim.Resource{}, err
+		}
+	}
+
+	if attributes["roles"] != nil {
+		err = u.setRoles(r.Context(), id, attributes["roles"].([]interface{}))
 		if err != nil {
 			return scim.Resource{}, err
 		}

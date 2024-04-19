@@ -10,6 +10,7 @@ import (
 	"github.com/aserto-dev/go-directory/pkg/derr"
 	"github.com/aserto-dev/scim/pkg/config"
 	"github.com/aserto-dev/scim/pkg/directory"
+	"github.com/elimity-com/scim"
 	serrors "github.com/elimity-com/scim/errors"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -135,9 +136,7 @@ func (u UsersResourceHandler) removeUserFromGroup(ctx context.Context, userID, g
 	return err
 }
 
-func (u UsersResourceHandler) setIdentity(ctx context.Context, userID, identity, kind string) error {
-	propsMap := make(map[string]interface{})
-	propsMap["kind"] = kind
+func (u UsersResourceHandler) setIdentity(ctx context.Context, userID, identity string, propsMap map[string]interface{}) error {
 	props, err := structpb.NewStruct(propsMap)
 	if err != nil {
 		return err
@@ -173,4 +172,86 @@ func (u UsersResourceHandler) removeIdentity(ctx context.Context, identity strin
 	})
 
 	return err
+}
+
+func (u UsersResourceHandler) setAllIdentities(ctx context.Context, userId string, attributes scim.ResourceAttributes) error {
+	if attributes["userName"] != nil {
+		err := u.setIdentity(ctx, userId, attributes["userName"].(string), nil)
+		if err != nil {
+			return err
+		}
+	}
+
+	if attributes["emails"] != nil && u.cfg.SCIM.CreateEmailIdentities {
+		for _, m := range attributes["emails"].([]interface{}) {
+			email, ok := m.(map[string]interface{})
+			if !ok {
+				return errors.New("emails attribute is not a list of maps")
+			}
+			if email["value"].(string) == attributes["userName"].(string) {
+				continue
+			}
+
+			err := u.setIdentity(ctx, userId, email["value"].(string), nil)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if attributes["externalId"] != nil {
+		externalID := attributes["externalId"]
+		externalIDStr, ok := externalID.(string)
+		if !ok {
+			return errors.New("externalId attribute is not a string")
+		}
+		err := u.setIdentity(ctx, userId, externalIDStr, nil)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (u UsersResourceHandler) setRoles(ctx context.Context, userID string, roles []interface{}) error {
+	for _, role := range roles {
+		r := role.(map[string]interface{})
+		roleType := r["type"]
+		if roleType == nil {
+			u.logger.Debug().Msg("role type not found")
+			continue
+		}
+
+		roleValue, ok := r["value"].(string)
+		if !ok {
+			continue
+		}
+
+		roleMap := u.cfg.SCIM.Roles.RoleMappings[roleType.(string)]
+		if roleMap == nil {
+			u.logger.Debug().Str("role", r["type"].(string)).Msg("role not found in role mappings")
+			continue
+		}
+
+		objectType := roleMap.ObjectType
+		if objectType == "" {
+			objectType = roleType.(string)
+		}
+
+		u.logger.Trace().Str("role", r["value"].(string)).Str("relation", roleMap.Relation).Str("objectType", objectType).Str("subject", userID).Msg("setting role")
+		_, err := u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
+			Relation: &dsc.Relation{
+				SubjectId:   userID,
+				SubjectType: "user",
+				Relation:    roleMap.Relation,
+				ObjectType:  objectType,
+				ObjectId:    roleValue,
+			}})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
