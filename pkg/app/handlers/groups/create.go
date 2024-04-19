@@ -22,6 +22,11 @@ func (u GroupResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 		return scim.Resource{}, err
 	}
 
+	err = u.setGroupMappings(r.Context(), resp.Result.Id)
+	if err != nil {
+		return scim.Resource{}, err
+	}
+
 	createdAt := resp.Result.CreatedAt.AsTime()
 	updatedAt := resp.Result.UpdatedAt.AsTime()
 	resource := common.ObjectToResource(resp.Result, scim.Meta{

@@ -24,6 +24,12 @@ directory:
 scim:
   create_email_identities: true
   create_role_groups: true
+  group_mappings:
+    - group: app-admin
+      type: system
+      id: administrators
+      relation: member
+      subject_relation: member
 ```
 
 ### start service
@@ -132,3 +138,14 @@ curl  -X PATCH \
 {"op":"add","path": "groups[type eq \"work\"].value","value": "admin"}
 ]}'
 ```
+
+### create a relation from an imported group to a aserto user (e.g. giving admin permission to users that are port of an imported group)
+```
+  group_mappings:
+    - group: app-admin
+      type: system
+      id: administrators
+      relation: admin
+      subject_relation: member
+```
+This will create a `admin` relation with `member` subject relation between the imported `add-admin` group and the already created object with id `administrators` ant type `system`

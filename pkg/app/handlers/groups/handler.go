@@ -1,6 +1,10 @@
 package groups
 
 import (
+	"context"
+
+	dsc "github.com/aserto-dev/go-directory/aserto/directory/common/v3"
+	dsw "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
 	"github.com/aserto-dev/scim/pkg/config"
 	"github.com/aserto-dev/scim/pkg/directory"
 	"github.com/rs/zerolog"
@@ -27,4 +31,25 @@ func NewGroupResourceHandler(cfg *config.Config, logger *zerolog.Logger) (*Group
 		cfg:       cfg,
 		logger:    &groupLogger,
 	}, nil
+}
+
+func (u GroupResourceHandler) setGroupMappings(ctx context.Context, groupID string) error {
+	for _, groupMap := range u.cfg.SCIM.GroupMappings {
+		if groupMap.Group == groupID {
+			_, err := u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
+				Relation: &dsc.Relation{
+					SubjectType:     "group",
+					SubjectId:       groupID,
+					Relation:        groupMap.Relation,
+					ObjectType:      groupMap.Type,
+					ObjectId:        groupMap.ID,
+					SubjectRelation: groupMap.SubjectRelation,
+				},
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
