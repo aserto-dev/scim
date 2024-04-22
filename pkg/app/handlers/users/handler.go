@@ -10,6 +10,7 @@ import (
 	"github.com/aserto-dev/go-directory/pkg/derr"
 	"github.com/aserto-dev/scim/pkg/config"
 	"github.com/aserto-dev/scim/pkg/directory"
+	"github.com/elimity-com/scim"
 	serrors "github.com/elimity-com/scim/errors"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -17,8 +18,9 @@ import (
 )
 
 const (
-	Emails = "emails"
-	Groups = "groups"
+	Emails          = "emails"
+	Groups          = "groups"
+	IdentityKindKey = "kind"
 )
 
 type UsersResourceHandler struct {
@@ -135,9 +137,7 @@ func (u UsersResourceHandler) removeUserFromGroup(ctx context.Context, userID, g
 	return err
 }
 
-func (u UsersResourceHandler) setIdentity(ctx context.Context, userID, identity, kind string) error {
-	propsMap := make(map[string]interface{})
-	propsMap["kind"] = kind
+func (u UsersResourceHandler) setIdentity(ctx context.Context, userID, identity string, propsMap map[string]interface{}) error {
 	props, err := structpb.NewStruct(propsMap)
 	if err != nil {
 		return err
@@ -173,4 +173,44 @@ func (u UsersResourceHandler) removeIdentity(ctx context.Context, identity strin
 	})
 
 	return err
+}
+
+func (u UsersResourceHandler) setAllIdentities(ctx context.Context, userID string, attributes scim.ResourceAttributes) error {
+	if attributes["userName"] != nil {
+		err := u.setIdentity(ctx, userID, attributes["userName"].(string), map[string]interface{}{IdentityKindKey: "IDENTITY_KIND_USERNAME"})
+		if err != nil {
+			return err
+		}
+	}
+
+	if attributes["emails"] != nil && u.cfg.SCIM.CreateEmailIdentities {
+		for _, m := range attributes["emails"].([]interface{}) {
+			email, ok := m.(map[string]interface{})
+			if !ok {
+				return errors.New("emails attribute is not a list of maps")
+			}
+			if email["value"].(string) == attributes["userName"].(string) {
+				continue
+			}
+
+			err := u.setIdentity(ctx, userID, email["value"].(string), map[string]interface{}{IdentityKindKey: "IDENTITY_KIND_EMAIL"})
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if attributes["externalId"] != nil {
+		externalID := attributes["externalId"]
+		externalIDStr, ok := externalID.(string)
+		if !ok {
+			return errors.New("externalId attribute is not a string")
+		}
+		err := u.setIdentity(ctx, userID, externalIDStr, map[string]interface{}{IdentityKindKey: "IDENTITY_KIND_PID"})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
