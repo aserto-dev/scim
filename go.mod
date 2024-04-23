@@ -1,6 +1,6 @@
 module github.com/aserto-dev/scim
 
-go 1.20
+go 1.22
 
 require (
 	github.com/aserto-dev/certs v0.0.5
@@ -8,7 +8,7 @@ require (
 	github.com/aserto-dev/go-aserto v0.30.0
 	github.com/aserto-dev/go-directory v0.30.5
 	github.com/aserto-dev/logger v0.0.4
-	github.com/elimity-com/scim v0.0.0-20230426070224-941a5eac92f3
+	github.com/elimity-com/scim v0.0.0-20240320110924-172bf2aee9c8
 	github.com/magefile/mage v1.15.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1

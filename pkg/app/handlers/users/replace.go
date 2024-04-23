@@ -27,7 +27,12 @@ func (u UsersResourceHandler) Replace(r *http.Request, id string, attributes sci
 		return scim.Resource{}, err
 	}
 
-	object, err := common.ResourceAttributesToObject(attributes, "user", id)
+	user, err := common.ResourceAttributesToUser(attributes)
+	if err != nil {
+		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
+	}
+
+	object, err := common.UserToObject(user)
 	if err != nil {
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
@@ -41,16 +46,14 @@ func (u UsersResourceHandler) Replace(r *http.Request, id string, attributes sci
 		return scim.Resource{}, err
 	}
 
-	err = u.setAllIdentities(r.Context(), id, attributes)
+	err = u.setAllIdentities(r.Context(), id, user)
 	if err != nil {
 		return scim.Resource{}, err
 	}
 
-	if attributes["groups"] != nil {
-		err = u.setUserGroups(r.Context(), id, attributes["groups"].([]string))
-		if err != nil {
-			return scim.Resource{}, err
-		}
+	err = u.setUserGroups(r.Context(), id, user.Groups)
+	if err != nil {
+		return scim.Resource{}, err
 	}
 
 	createdAt := setResp.Result.CreatedAt.AsTime()

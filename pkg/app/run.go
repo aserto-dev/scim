@@ -64,8 +64,8 @@ func Run(cfgPath string, logWriter logger.Writer, errWriter logger.ErrWriter) er
 		Handler:     groupHandler,
 	}
 
-	server := scim.Server{
-		Config: scim.ServiceProviderConfig{
+	serverArgs := &scim.ServerArgs{
+		ServiceProviderConfig: &scim.ServiceProviderConfig{
 			DocumentationURI: optional.NewString("https://aserto.com/docs/scim"),
 			SupportFiltering: true,
 			SupportPatch:     true,
@@ -81,6 +81,11 @@ func Run(cfgPath string, logWriter logger.Writer, errWriter logger.ErrWriter) er
 			userType,
 			groupType,
 		},
+	}
+
+	server, err := scim.NewServer(serverArgs)
+	if err != nil {
+		return err
 	}
 
 	app := new(application)

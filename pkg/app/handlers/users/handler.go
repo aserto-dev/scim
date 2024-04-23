@@ -8,9 +8,9 @@ import (
 	dsr "github.com/aserto-dev/go-directory/aserto/directory/reader/v3"
 	dsw "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
 	"github.com/aserto-dev/go-directory/pkg/derr"
+	"github.com/aserto-dev/scim/pkg/common"
 	"github.com/aserto-dev/scim/pkg/config"
 	"github.com/aserto-dev/scim/pkg/directory"
-	"github.com/elimity-com/scim"
 	serrors "github.com/elimity-com/scim/errors"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -42,7 +42,7 @@ func NewUsersResourceHandler(cfg *config.Config, logger *zerolog.Logger) (*Users
 	}, nil
 }
 
-func (u UsersResourceHandler) setUserGroups(ctx context.Context, userID string, groups []string) error {
+func (u UsersResourceHandler) setUserGroups(ctx context.Context, userID string, groups []common.UserGroup) error {
 	relations, err := u.dirClient.Reader.GetRelations(ctx, &dsr.GetRelationsRequest{
 		SubjectType: "user",
 		SubjectId:   userID,
@@ -73,7 +73,7 @@ func (u UsersResourceHandler) setUserGroups(ctx context.Context, userID string, 
 				SubjectType: "user",
 				Relation:    "member",
 				ObjectType:  "group",
-				ObjectId:    v,
+				ObjectId:    v.Value,
 			}})
 		if err != nil {
 			return err
@@ -175,38 +175,29 @@ func (u UsersResourceHandler) removeIdentity(ctx context.Context, identity strin
 	return err
 }
 
-func (u UsersResourceHandler) setAllIdentities(ctx context.Context, userID string, attributes scim.ResourceAttributes) error {
-	if attributes["userName"] != nil {
-		err := u.setIdentity(ctx, userID, attributes["userName"].(string), map[string]interface{}{IdentityKindKey: "IDENTITY_KIND_USERNAME"})
+func (u UsersResourceHandler) setAllIdentities(ctx context.Context, userID string, user *common.User) error {
+	if user.UserName != "" {
+		err := u.setIdentity(ctx, userID, user.UserName, map[string]interface{}{IdentityKindKey: "IDENTITY_KIND_USERNAME"})
 		if err != nil {
 			return err
 		}
 	}
 
-	if attributes["emails"] != nil && u.cfg.SCIM.CreateEmailIdentities {
-		for _, m := range attributes["emails"].([]interface{}) {
-			email, ok := m.(map[string]interface{})
-			if !ok {
-				return errors.New("emails attribute is not a list of maps")
-			}
-			if email["value"].(string) == attributes["userName"].(string) {
+	if u.cfg.SCIM.CreateEmailIdentities {
+		for _, email := range user.Emails {
+			if email.Value == user.UserName {
 				continue
 			}
 
-			err := u.setIdentity(ctx, userID, email["value"].(string), map[string]interface{}{IdentityKindKey: "IDENTITY_KIND_EMAIL"})
+			err := u.setIdentity(ctx, userID, email.Value, map[string]interface{}{IdentityKindKey: "IDENTITY_KIND_EMAIL"})
 			if err != nil {
 				return err
 			}
 		}
 	}
 
-	if attributes["externalId"] != nil {
-		externalID := attributes["externalId"]
-		externalIDStr, ok := externalID.(string)
-		if !ok {
-			return errors.New("externalId attribute is not a string")
-		}
-		err := u.setIdentity(ctx, userID, externalIDStr, map[string]interface{}{IdentityKindKey: "IDENTITY_KIND_PID"})
+	if user.ExternalID != "" {
+		err := u.setIdentity(ctx, userID, user.ExternalID, map[string]interface{}{IdentityKindKey: "IDENTITY_KIND_PID"})
 		if err != nil {
 			return err
 		}

@@ -1,6 +1,6 @@
 module github.com/aserto-dev/scim/magefiles
 
-go 1.20
+go 1.22
 
 require (
 	github.com/aserto-dev/mage-loot v0.8.15
