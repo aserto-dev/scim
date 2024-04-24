@@ -20,7 +20,7 @@ import (
 func (u GroupResourceHandler) Patch(r *http.Request, id string, operations []scim.PatchOperation) (scim.Resource, error) {
 	u.logger.Trace().Str("group_id", id).Any("operations", operations).Msg("patching group")
 	getObjResp, err := u.dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
-		ObjectType:    "group",
+		ObjectType:    u.cfg.SCIM.GroupObjectType,
 		ObjectId:      id,
 		WithRelations: true,
 	})
@@ -179,20 +179,20 @@ func (u GroupResourceHandler) handlePatchOPReplace(object *dsc.Object, op scim.P
 
 func (u GroupResourceHandler) addUserToGroup(ctx context.Context, userID, group string) error {
 	rel, err := u.dirClient.Reader.GetRelation(ctx, &dsr.GetRelationRequest{
-		SubjectType: "user",
+		SubjectType: u.cfg.SCIM.UserObjectType,
 		SubjectId:   userID,
-		ObjectType:  "group",
+		ObjectType:  u.cfg.SCIM.GroupObjectType,
 		ObjectId:    group,
-		Relation:    "member",
+		Relation:    u.cfg.SCIM.GroupMemberRelation,
 	})
 	if err != nil {
 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrRelationNotFound) {
 			_, err = u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
 				Relation: &dsc.Relation{
 					SubjectId:   userID,
-					SubjectType: "user",
-					Relation:    "member",
-					ObjectType:  "group",
+					SubjectType: u.cfg.SCIM.UserObjectType,
+					Relation:    u.cfg.SCIM.GroupMemberRelation,
+					ObjectType:  u.cfg.SCIM.GroupObjectType,
 					ObjectId:    group,
 				}})
 			return err
@@ -208,11 +208,11 @@ func (u GroupResourceHandler) addUserToGroup(ctx context.Context, userID, group 
 
 func (u GroupResourceHandler) removeUserFromGroup(ctx context.Context, userID, group string) error {
 	_, err := u.dirClient.Reader.GetRelation(ctx, &dsr.GetRelationRequest{
-		SubjectType: "user",
+		SubjectType: u.cfg.SCIM.UserObjectType,
 		SubjectId:   userID,
-		ObjectType:  "group",
+		ObjectType:  u.cfg.SCIM.GroupObjectType,
 		ObjectId:    group,
-		Relation:    "member",
+		Relation:    u.cfg.SCIM.GroupMemberRelation,
 	})
 	if err != nil {
 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrRelationNotFound) {
@@ -222,11 +222,11 @@ func (u GroupResourceHandler) removeUserFromGroup(ctx context.Context, userID, g
 	}
 
 	_, err = u.dirClient.Writer.DeleteRelation(ctx, &dsw.DeleteRelationRequest{
-		SubjectType: "user",
+		SubjectType: u.cfg.SCIM.UserObjectType,
 		SubjectId:   userID,
-		ObjectType:  "group",
+		ObjectType:  u.cfg.SCIM.GroupObjectType,
 		ObjectId:    group,
-		Relation:    "member",
+		Relation:    u.cfg.SCIM.GroupMemberRelation,
 	})
 	return err
 }

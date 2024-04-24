@@ -54,5 +54,10 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 		return scim.Resource{}, err
 	}
 
+	err = u.setUserMappings(r.Context(), resp.Result.Id)
+	if err != nil {
+		return scim.Resource{}, err
+	}
+
 	return resource, nil
 }

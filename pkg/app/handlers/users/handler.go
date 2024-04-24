@@ -44,7 +44,7 @@ func NewUsersResourceHandler(cfg *config.Config, logger *zerolog.Logger) (*Users
 
 func (u UsersResourceHandler) setUserGroups(ctx context.Context, userID string, groups []common.UserGroup) error {
 	relations, err := u.dirClient.Reader.GetRelations(ctx, &dsr.GetRelationsRequest{
-		SubjectType: "user",
+		SubjectType: u.cfg.SCIM.UserObjectType,
 		SubjectId:   userID,
 	})
 	if err != nil {
@@ -52,7 +52,7 @@ func (u UsersResourceHandler) setUserGroups(ctx context.Context, userID string, 
 	}
 
 	for _, v := range relations.Results {
-		if v.Relation == "member" {
+		if v.Relation == u.cfg.SCIM.GroupMemberRelation {
 			_, err = u.dirClient.Writer.DeleteRelation(ctx, &dsw.DeleteRelationRequest{
 				SubjectType: v.SubjectType,
 				SubjectId:   v.SubjectId,
@@ -70,9 +70,9 @@ func (u UsersResourceHandler) setUserGroups(ctx context.Context, userID string, 
 		_, err = u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
 			Relation: &dsc.Relation{
 				SubjectId:   userID,
-				SubjectType: "user",
-				Relation:    "member",
-				ObjectType:  "group",
+				SubjectType: u.cfg.SCIM.UserObjectType,
+				Relation:    u.cfg.SCIM.GroupMemberRelation,
+				ObjectType:  u.cfg.SCIM.GroupObjectType,
 				ObjectId:    v.Value,
 			}})
 		if err != nil {
@@ -85,20 +85,20 @@ func (u UsersResourceHandler) setUserGroups(ctx context.Context, userID string, 
 
 func (u UsersResourceHandler) addUserToGroup(ctx context.Context, userID, group string) error {
 	rel, err := u.dirClient.Reader.GetRelation(ctx, &dsr.GetRelationRequest{
-		SubjectType: "user",
+		SubjectType: u.cfg.SCIM.UserObjectType,
 		SubjectId:   userID,
-		ObjectType:  "group",
+		ObjectType:  u.cfg.SCIM.GroupObjectType,
 		ObjectId:    group,
-		Relation:    "member",
+		Relation:    u.cfg.SCIM.GroupMemberRelation,
 	})
 	if err != nil {
 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrRelationNotFound) {
 			_, err = u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
 				Relation: &dsc.Relation{
 					SubjectId:   userID,
-					SubjectType: "user",
-					Relation:    "member",
-					ObjectType:  "group",
+					SubjectType: u.cfg.SCIM.UserObjectType,
+					Relation:    u.cfg.SCIM.GroupMemberRelation,
+					ObjectType:  u.cfg.SCIM.GroupObjectType,
 					ObjectId:    group,
 				}})
 			return err
@@ -114,11 +114,11 @@ func (u UsersResourceHandler) addUserToGroup(ctx context.Context, userID, group 
 
 func (u UsersResourceHandler) removeUserFromGroup(ctx context.Context, userID, group string) error {
 	_, err := u.dirClient.Reader.GetRelation(ctx, &dsr.GetRelationRequest{
-		SubjectType: "user",
+		SubjectType: u.cfg.SCIM.UserObjectType,
 		SubjectId:   userID,
-		ObjectType:  "group",
+		ObjectType:  u.cfg.SCIM.GroupObjectType,
 		ObjectId:    group,
-		Relation:    "member",
+		Relation:    u.cfg.SCIM.GroupMemberRelation,
 	})
 	if err != nil {
 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrRelationNotFound) {
@@ -128,11 +128,11 @@ func (u UsersResourceHandler) removeUserFromGroup(ctx context.Context, userID, g
 	}
 
 	_, err = u.dirClient.Writer.DeleteRelation(ctx, &dsw.DeleteRelationRequest{
-		SubjectType: "user",
+		SubjectType: u.cfg.SCIM.UserObjectType,
 		SubjectId:   userID,
-		ObjectType:  "group",
+		ObjectType:  u.cfg.SCIM.GroupObjectType,
 		ObjectId:    group,
-		Relation:    "member",
+		Relation:    u.cfg.SCIM.GroupMemberRelation,
 	})
 	return err
 }
@@ -145,7 +145,7 @@ func (u UsersResourceHandler) setIdentity(ctx context.Context, userID, identity 
 
 	_, err = u.dirClient.Writer.SetObject(ctx, &dsw.SetObjectRequest{
 		Object: &dsc.Object{
-			Type:       "identity",
+			Type:       u.cfg.SCIM.IdentityObjectType,
 			Id:         identity,
 			Properties: props,
 		},
@@ -157,9 +157,9 @@ func (u UsersResourceHandler) setIdentity(ctx context.Context, userID, identity 
 	_, err = u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
 		Relation: &dsc.Relation{
 			SubjectId:   userID,
-			SubjectType: "user",
-			Relation:    "identifier",
-			ObjectType:  "identity",
+			SubjectType: u.cfg.SCIM.UserObjectType,
+			Relation:    u.cfg.SCIM.IdentityRelation,
+			ObjectType:  u.cfg.SCIM.IdentityObjectType,
 			ObjectId:    identity,
 		}})
 	return err
@@ -167,7 +167,7 @@ func (u UsersResourceHandler) setIdentity(ctx context.Context, userID, identity 
 
 func (u UsersResourceHandler) removeIdentity(ctx context.Context, identity string) error {
 	_, err := u.dirClient.Writer.DeleteObject(ctx, &dsw.DeleteObjectRequest{
-		ObjectType:    "identity",
+		ObjectType:    u.cfg.SCIM.IdentityObjectType,
 		ObjectId:      identity,
 		WithRelations: true,
 	})
@@ -203,5 +203,26 @@ func (u UsersResourceHandler) setAllIdentities(ctx context.Context, userID strin
 		}
 	}
 
+	return nil
+}
+
+func (u UsersResourceHandler) setUserMappings(ctx context.Context, userID string) error {
+	for _, userMap := range u.cfg.SCIM.UserMappings {
+		if userMap.SubjectID == userID {
+			_, err := u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
+				Relation: &dsc.Relation{
+					SubjectType:     u.cfg.SCIM.UserObjectType,
+					SubjectId:       userMap.SubjectID,
+					Relation:        userMap.Relation,
+					ObjectType:      userMap.ObjectType,
+					ObjectId:        userMap.ObjectID,
+					SubjectRelation: userMap.SubjectRelation,
+				},
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }

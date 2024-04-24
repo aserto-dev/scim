@@ -17,7 +17,7 @@ import (
 func (u UsersResourceHandler) Get(r *http.Request, id string) (scim.Resource, error) {
 	u.logger.Trace().Str("user_id", id).Msg("get user")
 	resp, err := u.dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
-		ObjectType:    "user",
+		ObjectType:    u.cfg.SCIM.UserObjectType,
 		ObjectId:      id,
 		WithRelations: true,
 	})
@@ -96,7 +96,7 @@ func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 
 func (u UsersResourceHandler) getUsers(ctx context.Context, count int, pageToken string) (*dsr.GetObjectsResponse, error) {
 	return u.dirClient.Reader.GetObjects(ctx, &dsr.GetObjectsRequest{
-		ObjectType: "user",
+		ObjectType: u.cfg.SCIM.UserObjectType,
 		Page: &dsc.PaginationRequest{
 			Size:  int32(count),
 			Token: pageToken,

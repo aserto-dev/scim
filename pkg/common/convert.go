@@ -34,6 +34,7 @@ func ResourceAttributesToObject(resourceAttributes scim.ResourceAttributes, obje
 	} else {
 		displayName = id
 	}
+
 	object := &dsc.Object{
 		Type:        objectType,
 		Properties:  props,

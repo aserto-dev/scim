@@ -14,7 +14,7 @@ import (
 func (u UsersResourceHandler) Delete(r *http.Request, id string) error {
 	u.logger.Trace().Str("user_id", id).Msg("deleting user")
 	relations, err := u.dirClient.Reader.GetRelations(r.Context(), &dsr.GetRelationsRequest{
-		SubjectType: "user",
+		SubjectType: u.cfg.SCIM.UserObjectType,
 		SubjectId:   id,
 	})
 	if err != nil {
@@ -25,7 +25,7 @@ func (u UsersResourceHandler) Delete(r *http.Request, id string) error {
 	}
 
 	for _, v := range relations.Results {
-		if v.Relation == "identifier" {
+		if v.Relation == u.cfg.SCIM.IdentityRelation {
 			_, err = u.dirClient.Writer.DeleteObject(r.Context(), &dsw.DeleteObjectRequest{
 				ObjectId:      v.ObjectId,
 				ObjectType:    v.ObjectType,
@@ -38,7 +38,7 @@ func (u UsersResourceHandler) Delete(r *http.Request, id string) error {
 	}
 
 	_, err = u.dirClient.Writer.DeleteObject(r.Context(), &dsw.DeleteObjectRequest{
-		ObjectType:    "user",
+		ObjectType:    u.cfg.SCIM.UserObjectType,
 		ObjectId:      id,
 		WithRelations: true,
 	})

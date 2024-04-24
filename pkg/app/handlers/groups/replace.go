@@ -26,7 +26,7 @@ func (u GroupResourceHandler) Replace(r *http.Request, id string, attributes sci
 		return scim.Resource{}, err
 	}
 
-	object, err := common.ResourceAttributesToObject(attributes, "group", id)
+	object, err := common.ResourceAttributesToObject(attributes, u.cfg.SCIM.GroupObjectType, id)
 	if err != nil {
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}

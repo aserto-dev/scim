@@ -10,7 +10,7 @@ import (
 )
 
 func (u GroupResourceHandler) Create(r *http.Request, attributes scim.ResourceAttributes) (scim.Resource, error) {
-	object, err := common.ResourceAttributesToObject(attributes, "group", attributes["displayName"].(string))
+	object, err := common.ResourceAttributesToObject(attributes, u.cfg.SCIM.GroupObjectType, attributes["displayName"].(string))
 	if err != nil {
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}

@@ -25,9 +25,9 @@ scim:
   create_email_identities: true
   create_role_groups: true
   group_mappings:
-    - group: app-admin
-      type: system
-      id: administrators
+    - subject_id: app-admin
+      object_type: system
+      object_id: administrators
       relation: member
       subject_relation: member
 ```
@@ -142,9 +142,9 @@ curl  -X PATCH \
 ### create a relation from an imported group to a aserto user (e.g. giving admin permission to users that are port of an imported group)
 ```
   group_mappings:
-    - group: app-admin
-      type: system
-      id: administrators
+    - subject_id: app-admin
+      object_type: system
+      object_id: administrators
       relation: admin
       subject_relation: member
 ```
