@@ -12,7 +12,7 @@ import (
 
 func (u GroupResourceHandler) Delete(r *http.Request, id string) error {
 	_, err := u.dirClient.Writer.DeleteObject(r.Context(), &dsw.DeleteObjectRequest{
-		ObjectType:    "group",
+		ObjectType:    u.cfg.SCIM.GroupObjectType,
 		ObjectId:      id,
 		WithRelations: true,
 	})

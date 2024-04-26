@@ -11,7 +11,7 @@ import (
 
 func (u GroupResourceHandler) Get(r *http.Request, id string) (scim.Resource, error) {
 	resp, err := u.dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
-		ObjectType:    "group",
+		ObjectType:    u.cfg.SCIM.GroupObjectType,
 		ObjectId:      id,
 		WithRelations: true,
 	})
@@ -36,7 +36,7 @@ func (u GroupResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 	)
 
 	resp, err := u.dirClient.Reader.GetObjects(r.Context(), &dsr.GetObjectsRequest{
-		ObjectType: "group",
+		ObjectType: u.cfg.SCIM.GroupObjectType,
 		Page: &dsc.PaginationRequest{
 			Size: int32(params.Count),
 		},

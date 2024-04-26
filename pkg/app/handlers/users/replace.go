@@ -16,7 +16,7 @@ import (
 func (u UsersResourceHandler) Replace(r *http.Request, id string, attributes scim.ResourceAttributes) (scim.Resource, error) {
 	u.logger.Trace().Str("user_id", id).Any("attributes", attributes).Msg("replacing user")
 	getObjResp, err := u.dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
-		ObjectType:    "user",
+		ObjectType:    u.cfg.SCIM.UserObjectType,
 		ObjectId:      id,
 		WithRelations: true,
 	})
@@ -52,6 +52,11 @@ func (u UsersResourceHandler) Replace(r *http.Request, id string, attributes sci
 	}
 
 	err = u.setUserGroups(r.Context(), id, user.Groups)
+	if err != nil {
+		return scim.Resource{}, err
+	}
+
+	err = u.setUserMappings(r.Context(), id)
 	if err != nil {
 		return scim.Resource{}, err
 	}

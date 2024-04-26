@@ -29,16 +29,22 @@ type Config struct {
 	} `json:"server"`
 
 	SCIM struct {
-		CreateEmailIdentities bool           `json:"create_email_identities"`
-		CreateRoleGroups      bool           `json:"create_role_groups"`
-		GroupMappings         []GroupMapping `json:"group_mappings"`
+		CreateEmailIdentities bool            `json:"create_email_identities"`
+		CreateRoleGroups      bool            `json:"create_role_groups"`
+		GroupMappings         []ObjectMapping `json:"group_mappings"`
+		UserMappings          []ObjectMapping `json:"user_mappings"`
+		UserObjectType        string          `json:"user_object_type"`
+		GroupMemberRelation   string          `json:"group_member_relation"`
+		GroupObjectType       string          `json:"group_object_type"`
+		IdentityObjectType    string          `json:"identity_object_type"`
+		IdentityRelation      string          `json:"identity_relation"`
 	} `json:"scim"`
 }
 
-type GroupMapping struct {
-	Group           string `json:"group"`
-	Type            string `json:"type"`
-	ID              string `json:"id"`
+type ObjectMapping struct {
+	SubjectID       string `json:"subject_id"`
+	ObjectType      string `json:"object_type"`
+	ObjectID        string `json:"object_id"`
 	Relation        string `json:"relation"`
 	SubjectRelation string `json:"subject_relation"`
 }
@@ -88,6 +94,13 @@ func NewConfig(configPath string, log *zerolog.Logger, certsGenerator *certs.Gen
 	v.SetDefault("server.certs.tls_key_path", filepath.Join(DefaultTLSGenDir, "grpc.key"))
 	v.SetDefault("server.certs.tls_cert_path", filepath.Join(DefaultTLSGenDir, "grpc.crt"))
 	v.SetDefault("server.certs.tls_ca_cert_path", filepath.Join(DefaultTLSGenDir, "grpc-ca.crt"))
+
+	v.SetDefault("scim.create_email_identities", true)
+	v.SetDefault("scim.user_object_type", "user")
+	v.SetDefault("scim.identity_object_type", "identity")
+	v.SetDefault("scim.identity_relation", "identifier")
+	v.SetDefault("scim.group_object_type", "group")
+	v.SetDefault("scim.group_member_relation", "member")
 
 	configExists, err := fileExists(file)
 	if err != nil {

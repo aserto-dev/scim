@@ -20,7 +20,7 @@ import (
 func (u UsersResourceHandler) Patch(r *http.Request, id string, operations []scim.PatchOperation) (scim.Resource, error) {
 	u.logger.Trace().Str("user_id", id).Any("operations", operations).Msg("patching user")
 	getObjResp, err := u.dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
-		ObjectType:    "user",
+		ObjectType:    u.cfg.SCIM.UserObjectType,
 		ObjectId:      id,
 		WithRelations: true,
 	})
