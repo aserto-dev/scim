@@ -14,8 +14,15 @@ import (
 
 func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAttributes) (scim.Resource, error) {
 	u.logger.Trace().Any("attributes", attributes).Msg("creating user")
-	object, err := common.ResourceAttributesToObject(attributes, "user", attributes["userName"].(string))
+	user, err := common.ResourceAttributesToUser(attributes)
 	if err != nil {
+		u.logger.Error().Err(err).Msg("failed to convert attributes to user")
+		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
+	}
+
+	object, err := common.UserToObject(user)
+	if err != nil {
+		u.logger.Error().Err(err).Msg("failed to convert user to object")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
 
@@ -37,16 +44,14 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 		Version:      resp.Result.Etag,
 	})
 
-	err = u.setAllIdentities(r.Context(), resp.Result.Id, attributes)
+	err = u.setAllIdentities(r.Context(), resp.Result.Id, user)
 	if err != nil {
 		return scim.Resource{}, err
 	}
 
-	if attributes["groups"] != nil {
-		err = u.setUserGroups(r.Context(), resp.Result.Id, attributes["groups"].([]string))
-		if err != nil {
-			return scim.Resource{}, err
-		}
+	err = u.setUserGroups(r.Context(), resp.Result.Id, user.Groups)
+	if err != nil {
+		return scim.Resource{}, err
 	}
 
 	return resource, nil

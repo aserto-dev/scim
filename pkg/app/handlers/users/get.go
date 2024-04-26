@@ -12,7 +12,6 @@ import (
 	"github.com/elimity-com/scim"
 	serrors "github.com/elimity-com/scim/errors"
 	"github.com/pkg/errors"
-	"github.com/scim2/filter-parser/v2"
 )
 
 func (u UsersResourceHandler) Get(r *http.Request, id string) (scim.Resource, error) {
@@ -46,18 +45,9 @@ func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 	var (
 		resources = make([]scim.Resource, 0)
 		pageToken = ""
-		err       error
-		f         filter.AttributeExpression
 		pageSize  = 100
 		skipIndex = 1 // start index is 1-based
 	)
-
-	if params.Filter != nil {
-		f, err = filter.ParseAttrExp([]byte(params.Filter.(*filter.AttributeExpression).String()))
-		if err != nil {
-			return scim.Page{}, err
-		}
-	}
 
 	if params.Count != 0 && params.Count < pageSize {
 		pageSize = params.Count
@@ -72,7 +62,6 @@ func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 		pageToken = resp.Page.NextToken
 
 		for _, v := range resp.Results {
-			insert := false
 			createdAt := v.CreatedAt.AsTime()
 			updatedAt := v.UpdatedAt.AsTime()
 			resource := common.ObjectToResource(v, scim.Meta{
@@ -81,25 +70,7 @@ func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 				Version:      v.Etag,
 			})
 
-			if params.Filter != nil {
-				switch f.Operator {
-				case filter.EQ:
-					if resource.Attributes[f.AttributePath.AttributeName] == f.CompareValue {
-						insert = true
-					}
-				case filter.NE:
-					if resource.Attributes[f.AttributePath.AttributeName] != f.CompareValue {
-						insert = true
-					}
-				case filter.CO, filter.SW, filter.EW, filter.GT, filter.GE, filter.LT, filter.LE, filter.PR:
-					// TODO: implement
-					return scim.Page{}, serrors.ScimErrorInvalidFilter
-				}
-
-			} else {
-				insert = true
-			}
-			if insert {
+			if params.FilterValidator == nil || params.FilterValidator.PassesFilter(resource.Attributes) == nil {
 				if skipIndex <= params.StartIndex {
 					skipIndex++
 					continue
