@@ -206,6 +206,9 @@ func (u UsersResourceHandler) handlePatchOPReplace(object *dsc.Object, op scim.P
 		objectProps[op.Path.AttributePath.AttributeName] = op.Value
 	case map[string]interface{}:
 		for k, v := range value {
+			if k == "active" {
+				objectProps["enabled"] = v
+			}
 			objectProps[k] = v
 		}
 	}

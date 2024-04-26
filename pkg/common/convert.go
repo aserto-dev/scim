@@ -102,6 +102,9 @@ func UserToObject(user *User) (*dsc.Object, error) {
 	if displayName == "" {
 		displayName = userID
 	}
+
+	props.Fields["enabled"] = structpb.NewBoolValue(user.Active)
+
 	object := &dsc.Object{
 		Type:        "user",
 		Properties:  props,
