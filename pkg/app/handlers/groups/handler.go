@@ -20,17 +20,14 @@ type GroupResourceHandler struct {
 	logger    *zerolog.Logger
 }
 
-func NewGroupResourceHandler(cfg *config.Config, logger *zerolog.Logger) (*GroupResourceHandler, error) {
+func NewGroupResourceHandler(cfg *config.Config, logger *zerolog.Logger, dirClient *directory.DirectoryClient) *GroupResourceHandler {
 	groupLogger := logger.With().Str("component", "groups").Logger()
-	dirClient, err := directory.GetDirectoryClient(&cfg.Directory)
-	if err != nil {
-		return nil, err
-	}
+
 	return &GroupResourceHandler{
 		dirClient: dirClient,
 		cfg:       cfg,
 		logger:    &groupLogger,
-	}, nil
+	}
 }
 
 func (u GroupResourceHandler) setGroupMappings(ctx context.Context, groupID string) error {

@@ -9,6 +9,7 @@ import (
 	dsr "github.com/aserto-dev/go-directory/aserto/directory/reader/v3"
 	"github.com/aserto-dev/go-directory/pkg/derr"
 	"github.com/aserto-dev/scim/pkg/common"
+	"github.com/aserto-dev/scim/pkg/directory"
 	"github.com/elimity-com/scim"
 	serrors "github.com/elimity-com/scim/errors"
 	"github.com/pkg/errors"
@@ -16,7 +17,14 @@ import (
 
 func (u UsersResourceHandler) Get(r *http.Request, id string) (scim.Resource, error) {
 	u.logger.Trace().Str("user_id", id).Msg("get user")
-	resp, err := u.dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
+
+	dirClient, err := u.getDirectoryClient(r)
+	if err != nil {
+		u.logger.Error().Err(err).Msg("failed to get directory client")
+		return scim.Resource{}, serrors.ScimErrorInternal
+	}
+
+	resp, err := dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
 		ObjectType:    u.cfg.SCIM.UserObjectType,
 		ObjectId:      id,
 		WithRelations: true,
@@ -53,8 +61,14 @@ func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 		pageSize = params.Count
 	}
 
+	dirClient, err := u.getDirectoryClient(r)
+	if err != nil {
+		u.logger.Error().Err(err).Msg("failed to get directory client")
+		return scim.Page{}, serrors.ScimErrorInternal
+	}
+
 	for {
-		resp, err := u.getUsers(r.Context(), pageSize, pageToken)
+		resp, err := u.getUsers(r.Context(), dirClient, pageSize, pageToken)
 		if err != nil {
 			return scim.Page{}, err
 		}
@@ -94,8 +108,8 @@ func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 	}, nil
 }
 
-func (u UsersResourceHandler) getUsers(ctx context.Context, count int, pageToken string) (*dsr.GetObjectsResponse, error) {
-	return u.dirClient.Reader.GetObjects(ctx, &dsr.GetObjectsRequest{
+func (u UsersResourceHandler) getUsers(ctx context.Context, dirClient *directory.DirectoryClient, count int, pageToken string) (*dsr.GetObjectsResponse, error) {
+	return dirClient.Reader.GetObjects(ctx, &dsr.GetObjectsRequest{
 		ObjectType: u.cfg.SCIM.UserObjectType,
 		Page: &dsc.PaginationRequest{
 			Size:  int32(count),

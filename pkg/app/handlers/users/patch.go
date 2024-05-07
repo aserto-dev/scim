@@ -10,6 +10,7 @@ import (
 	dsw "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
 	"github.com/aserto-dev/go-directory/pkg/derr"
 	"github.com/aserto-dev/scim/pkg/common"
+	"github.com/aserto-dev/scim/pkg/directory"
 	"github.com/elimity-com/scim"
 	serrors "github.com/elimity-com/scim/errors"
 	"github.com/pkg/errors"
@@ -19,7 +20,14 @@ import (
 
 func (u UsersResourceHandler) Patch(r *http.Request, id string, operations []scim.PatchOperation) (scim.Resource, error) {
 	u.logger.Trace().Str("user_id", id).Any("operations", operations).Msg("patching user")
-	getObjResp, err := u.dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
+
+	dirClient, err := u.getDirectoryClient(r)
+	if err != nil {
+		u.logger.Error().Err(err).Msg("failed to get directory client")
+		return scim.Resource{}, serrors.ScimErrorInternal
+	}
+
+	getObjResp, err := dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
 		ObjectType:    u.cfg.SCIM.UserObjectType,
 		ObjectId:      id,
 		WithRelations: true,
@@ -36,12 +44,12 @@ func (u UsersResourceHandler) Patch(r *http.Request, id string, operations []sci
 	for _, op := range operations {
 		switch op.Op {
 		case scim.PatchOperationAdd:
-			err := u.handlePatchOPAdd(r.Context(), object, op)
+			err := u.handlePatchOPAdd(r.Context(), dirClient, object, op)
 			if err != nil {
 				return scim.Resource{}, err
 			}
 		case scim.PatchOperationRemove:
-			err := u.handlePatchOPRemove(r.Context(), object, op)
+			err := u.handlePatchOPRemove(r.Context(), dirClient, object, op)
 			if err != nil {
 				return scim.Resource{}, err
 			}
@@ -57,7 +65,7 @@ func (u UsersResourceHandler) Patch(r *http.Request, id string, operations []sci
 		return scim.Resource{}, err
 	}
 	object.Etag = getObjResp.Result.Etag
-	resp, err := u.dirClient.Writer.SetObject(r.Context(), &dsw.SetObjectRequest{
+	resp, err := dirClient.Writer.SetObject(r.Context(), &dsw.SetObjectRequest{
 		Object: object,
 	})
 	if err != nil {
@@ -76,7 +84,7 @@ func (u UsersResourceHandler) Patch(r *http.Request, id string, operations []sci
 	return resource, nil
 }
 
-func (u UsersResourceHandler) handlePatchOPAdd(ctx context.Context, object *dsc.Object, op scim.PatchOperation) error {
+func (u UsersResourceHandler) handlePatchOPAdd(ctx context.Context, dirClient *directory.DirectoryClient, object *dsc.Object, op scim.PatchOperation) error {
 	var err error
 	objectProps := object.Properties.AsMap()
 	if op.Path == nil || op.Path.ValueExpression == nil {
@@ -131,12 +139,12 @@ func (u UsersResourceHandler) handlePatchOPAdd(ctx context.Context, object *dsc.
 			}
 
 			if op.Path.AttributePath.AttributeName == Emails && u.cfg.SCIM.CreateEmailIdentities {
-				err = u.setIdentity(ctx, object.Id, op.Value.(string), map[string]interface{}{IdentityKindKey: "IDENTITY_KIND_EMAIL"})
+				err = u.setIdentity(ctx, dirClient, object.Id, op.Value.(string), map[string]interface{}{IdentityKindKey: "IDENTITY_KIND_EMAIL"})
 				if err != nil {
 					return err
 				}
 			} else if op.Path.AttributePath.AttributeName == Groups {
-				err = u.addUserToGroup(ctx, object.Id, op.Value.(string))
+				err = u.addUserToGroup(ctx, dirClient, object.Id, op.Value.(string))
 				if err != nil {
 					return err
 				}
@@ -148,7 +156,7 @@ func (u UsersResourceHandler) handlePatchOPAdd(ctx context.Context, object *dsc.
 	return err
 }
 
-func (u UsersResourceHandler) handlePatchOPRemove(ctx context.Context, object *dsc.Object, op scim.PatchOperation) error {
+func (u UsersResourceHandler) handlePatchOPRemove(ctx context.Context, dirClient *directory.DirectoryClient, object *dsc.Object, op scim.PatchOperation) error {
 	var err error
 	objectProps := object.Properties.AsMap()
 	var oldValue interface{}
@@ -181,13 +189,13 @@ func (u UsersResourceHandler) handlePatchOPRemove(ctx context.Context, object *d
 
 	if op.Path.AttributePath.AttributeName == Emails && u.cfg.SCIM.CreateEmailIdentities {
 		email := oldValue.(map[string]interface{})["value"].(string)
-		err = u.removeIdentity(ctx, email)
+		err = u.removeIdentity(ctx, dirClient, email)
 		if err != nil {
 			return err
 		}
 	} else if op.Path.AttributePath.AttributeName == Groups {
 		group := oldValue.(map[string]interface{})["value"].(string)
-		err = u.removeUserFromGroup(ctx, object.Id, group)
+		err = u.removeUserFromGroup(ctx, dirClient, object.Id, group)
 		if err != nil {
 			return err
 		}

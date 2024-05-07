@@ -26,7 +26,13 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
 
-	resp, err := u.dirClient.Writer.SetObject(r.Context(), &dsw.SetObjectRequest{
+	dirClient, err := u.getDirectoryClient(r)
+	if err != nil {
+		u.logger.Error().Err(err).Msg("failed to get directory client")
+		return scim.Resource{}, serrors.ScimErrorInternal
+	}
+
+	resp, err := dirClient.Writer.SetObject(r.Context(), &dsw.SetObjectRequest{
 		Object: object,
 	})
 	if err != nil {
@@ -44,17 +50,17 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 		Version:      resp.Result.Etag,
 	})
 
-	err = u.setAllIdentities(r.Context(), resp.Result.Id, user)
+	err = u.setAllIdentities(r.Context(), dirClient, resp.Result.Id, user)
 	if err != nil {
 		return scim.Resource{}, err
 	}
 
-	err = u.setUserGroups(r.Context(), resp.Result.Id, user.Groups)
+	err = u.setUserGroups(r.Context(), dirClient, resp.Result.Id, user.Groups)
 	if err != nil {
 		return scim.Resource{}, err
 	}
 
-	err = u.setUserMappings(r.Context(), resp.Result.Id)
+	err = u.setUserMappings(r.Context(), dirClient, resp.Result.Id)
 	if err != nil {
 		return scim.Resource{}, err
 	}

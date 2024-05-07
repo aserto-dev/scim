@@ -15,7 +15,14 @@ import (
 
 func (u UsersResourceHandler) Replace(r *http.Request, id string, attributes scim.ResourceAttributes) (scim.Resource, error) {
 	u.logger.Trace().Str("user_id", id).Any("attributes", attributes).Msg("replacing user")
-	getObjResp, err := u.dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
+
+	dirClient, err := u.getDirectoryClient(r)
+	if err != nil {
+		u.logger.Error().Err(err).Msg("failed to get directory client")
+		return scim.Resource{}, serrors.ScimErrorInternal
+	}
+
+	getObjResp, err := dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
 		ObjectType:    u.cfg.SCIM.UserObjectType,
 		ObjectId:      id,
 		WithRelations: true,
@@ -39,24 +46,24 @@ func (u UsersResourceHandler) Replace(r *http.Request, id string, attributes sci
 	object.Id = id
 	object.Etag = getObjResp.Result.Etag
 
-	setResp, err := u.dirClient.Writer.SetObject(r.Context(), &dsw.SetObjectRequest{
+	setResp, err := dirClient.Writer.SetObject(r.Context(), &dsw.SetObjectRequest{
 		Object: object,
 	})
 	if err != nil {
 		return scim.Resource{}, err
 	}
 
-	err = u.setAllIdentities(r.Context(), id, user)
+	err = u.setAllIdentities(r.Context(), dirClient, id, user)
 	if err != nil {
 		return scim.Resource{}, err
 	}
 
-	err = u.setUserGroups(r.Context(), id, user.Groups)
+	err = u.setUserGroups(r.Context(), dirClient, id, user.Groups)
 	if err != nil {
 		return scim.Resource{}, err
 	}
 
-	err = u.setUserMappings(r.Context(), id)
+	err = u.setUserMappings(r.Context(), dirClient, id)
 	if err != nil {
 		return scim.Resource{}, err
 	}

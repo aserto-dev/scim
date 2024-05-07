@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"crypto/sha256"
 	"crypto/subtle"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"github.com/aserto-dev/scim/pkg/app/handlers/groups"
 	"github.com/aserto-dev/scim/pkg/app/handlers/users"
 	"github.com/aserto-dev/scim/pkg/config"
+	"github.com/aserto-dev/scim/pkg/directory"
 	"github.com/elimity-com/scim"
 	"github.com/elimity-com/scim/optional"
 	"github.com/elimity-com/scim/schema"
@@ -33,10 +35,12 @@ func Run(cfgPath string, logWriter logger.Writer, errWriter logger.ErrWriter) er
 		return err
 	}
 
-	userHandler, err := users.NewUsersResourceHandler(cfg, scimLogger)
+	dirClient, err := directory.GetDirectoryClient(context.Background(), &cfg.Directory)
 	if err != nil {
 		return err
 	}
+
+	userHandler := users.NewUsersResourceHandler(cfg, scimLogger)
 
 	userType := scim.ResourceType{
 		ID:          optional.NewString("User"),
@@ -50,10 +54,7 @@ func Run(cfgPath string, logWriter logger.Writer, errWriter logger.ErrWriter) er
 		Handler: userHandler,
 	}
 
-	groupHandler, err := groups.NewGroupResourceHandler(cfg, scimLogger)
-	if err != nil {
-		return err
-	}
+	groupHandler := groups.NewGroupResourceHandler(cfg, scimLogger, dirClient)
 
 	groupType := scim.ResourceType{
 		ID:          optional.NewString("Group"),
@@ -126,6 +127,13 @@ func (app *application) auth(next http.HandlerFunc) http.HandlerFunc {
 			if usernameMatch && passwordMatch {
 				next.ServeHTTP(w, r)
 				return
+			} else {
+				// let the directory authenticate the user
+				authContext := context.WithValue(r.Context(), "aserto-tenant-id", username)
+				authContext = context.WithValue(authContext, "aserto-api-key", password)
+
+				next.ServeHTTP(w, r.WithContext(authContext))
+				return
 			}
 		} else if app.cfg.Bearer.Enabled {
 			reqToken := r.Header.Get("Authorization")
@@ -142,3 +150,11 @@ func (app *application) auth(next http.HandlerFunc) http.HandlerFunc {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	})
 }
+
+// func (app *application) tenantHandler(next http.HandlerFunc) http.HandlerFunc {
+// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// 		split := strings.Split(r.URL.Path, "/")
+// 		r.SetPathValue("tenant-id", split[1])
+// 		http.StripPrefix("/"+split[1], next).ServeHTTP(w, r)
+// 	})
+// }

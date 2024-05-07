@@ -2,8 +2,10 @@ package users
 
 import (
 	"context"
+	"net/http"
 
 	cerr "github.com/aserto-dev/errors"
+	"github.com/aserto-dev/go-aserto/client"
 	dsc "github.com/aserto-dev/go-directory/aserto/directory/common/v3"
 	dsr "github.com/aserto-dev/go-directory/aserto/directory/reader/v3"
 	dsw "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
@@ -24,26 +26,41 @@ const (
 )
 
 type UsersResourceHandler struct {
-	dirClient *directory.DirectoryClient
-	cfg       *config.Config
-	logger    *zerolog.Logger
+	// dirClient *directory.DirectoryClient
+	cfg    *config.Config
+	logger *zerolog.Logger
 }
 
-func NewUsersResourceHandler(cfg *config.Config, logger *zerolog.Logger) (*UsersResourceHandler, error) {
+func NewUsersResourceHandler(cfg *config.Config, logger *zerolog.Logger) *UsersResourceHandler {
 	usersLogger := logger.With().Str("component", "users").Logger()
-	dirClient, err := directory.GetDirectoryClient(&cfg.Directory)
-	if err != nil {
-		return nil, err
-	}
+
 	return &UsersResourceHandler{
-		dirClient: dirClient,
-		cfg:       cfg,
-		logger:    &usersLogger,
-	}, nil
+		// dirClient: dirClient,
+		cfg:    cfg,
+		logger: &usersLogger,
+	}
 }
 
-func (u UsersResourceHandler) setUserGroups(ctx context.Context, userID string, groups []common.UserGroup) error {
-	relations, err := u.dirClient.Reader.GetRelations(ctx, &dsr.GetRelationsRequest{
+func (u UsersResourceHandler) getDirectoryClient(r *http.Request) (*directory.DirectoryClient, error) {
+	tenantID := r.Context().Value("aserto-tenant-id")
+	apiKey := r.Context().Value("aserto-api-key")
+	if tenantID == nil || apiKey == nil {
+		return directory.GetDirectoryClient(r.Context(), &u.cfg.Directory)
+	}
+
+	dirCfg := &client.Config{
+		Address:          u.cfg.Directory.Address,
+		TenantID:         tenantID.(string),
+		Insecure:         u.cfg.Directory.Insecure,
+		APIKey:           apiKey.(string),
+		TimeoutInSeconds: u.cfg.Directory.TimeoutInSeconds,
+	}
+	return directory.GetDirectoryClient(r.Context(), dirCfg)
+
+}
+
+func (u UsersResourceHandler) setUserGroups(ctx context.Context, dirClient *directory.DirectoryClient, userID string, groups []common.UserGroup) error {
+	relations, err := dirClient.Reader.GetRelations(ctx, &dsr.GetRelationsRequest{
 		SubjectType: u.cfg.SCIM.UserObjectType,
 		SubjectId:   userID,
 	})
@@ -53,7 +70,7 @@ func (u UsersResourceHandler) setUserGroups(ctx context.Context, userID string, 
 
 	for _, v := range relations.Results {
 		if v.Relation == u.cfg.SCIM.GroupMemberRelation {
-			_, err = u.dirClient.Writer.DeleteRelation(ctx, &dsw.DeleteRelationRequest{
+			_, err = dirClient.Writer.DeleteRelation(ctx, &dsw.DeleteRelationRequest{
 				SubjectType: v.SubjectType,
 				SubjectId:   v.SubjectId,
 				Relation:    v.Relation,
@@ -67,7 +84,7 @@ func (u UsersResourceHandler) setUserGroups(ctx context.Context, userID string, 
 	}
 
 	for _, v := range groups {
-		_, err = u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
+		_, err = dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
 			Relation: &dsc.Relation{
 				SubjectId:   userID,
 				SubjectType: u.cfg.SCIM.UserObjectType,
@@ -83,8 +100,8 @@ func (u UsersResourceHandler) setUserGroups(ctx context.Context, userID string, 
 	return nil
 }
 
-func (u UsersResourceHandler) addUserToGroup(ctx context.Context, userID, group string) error {
-	rel, err := u.dirClient.Reader.GetRelation(ctx, &dsr.GetRelationRequest{
+func (u UsersResourceHandler) addUserToGroup(ctx context.Context, dirClient *directory.DirectoryClient, userID, group string) error {
+	rel, err := dirClient.Reader.GetRelation(ctx, &dsr.GetRelationRequest{
 		SubjectType: u.cfg.SCIM.UserObjectType,
 		SubjectId:   userID,
 		ObjectType:  u.cfg.SCIM.GroupObjectType,
@@ -93,7 +110,7 @@ func (u UsersResourceHandler) addUserToGroup(ctx context.Context, userID, group 
 	})
 	if err != nil {
 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrRelationNotFound) {
-			_, err = u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
+			_, err = dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
 				Relation: &dsc.Relation{
 					SubjectId:   userID,
 					SubjectType: u.cfg.SCIM.UserObjectType,
@@ -112,8 +129,8 @@ func (u UsersResourceHandler) addUserToGroup(ctx context.Context, userID, group 
 	return nil
 }
 
-func (u UsersResourceHandler) removeUserFromGroup(ctx context.Context, userID, group string) error {
-	_, err := u.dirClient.Reader.GetRelation(ctx, &dsr.GetRelationRequest{
+func (u UsersResourceHandler) removeUserFromGroup(ctx context.Context, dirClient *directory.DirectoryClient, userID, group string) error {
+	_, err := dirClient.Reader.GetRelation(ctx, &dsr.GetRelationRequest{
 		SubjectType: u.cfg.SCIM.UserObjectType,
 		SubjectId:   userID,
 		ObjectType:  u.cfg.SCIM.GroupObjectType,
@@ -127,7 +144,7 @@ func (u UsersResourceHandler) removeUserFromGroup(ctx context.Context, userID, g
 		return err
 	}
 
-	_, err = u.dirClient.Writer.DeleteRelation(ctx, &dsw.DeleteRelationRequest{
+	_, err = dirClient.Writer.DeleteRelation(ctx, &dsw.DeleteRelationRequest{
 		SubjectType: u.cfg.SCIM.UserObjectType,
 		SubjectId:   userID,
 		ObjectType:  u.cfg.SCIM.GroupObjectType,
@@ -137,13 +154,13 @@ func (u UsersResourceHandler) removeUserFromGroup(ctx context.Context, userID, g
 	return err
 }
 
-func (u UsersResourceHandler) setIdentity(ctx context.Context, userID, identity string, propsMap map[string]interface{}) error {
+func (u UsersResourceHandler) setIdentity(ctx context.Context, dirClient *directory.DirectoryClient, userID, identity string, propsMap map[string]interface{}) error {
 	props, err := structpb.NewStruct(propsMap)
 	if err != nil {
 		return err
 	}
 
-	_, err = u.dirClient.Writer.SetObject(ctx, &dsw.SetObjectRequest{
+	_, err = dirClient.Writer.SetObject(ctx, &dsw.SetObjectRequest{
 		Object: &dsc.Object{
 			Type:       u.cfg.SCIM.IdentityObjectType,
 			Id:         identity,
@@ -154,7 +171,7 @@ func (u UsersResourceHandler) setIdentity(ctx context.Context, userID, identity 
 		return err
 	}
 
-	_, err = u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
+	_, err = dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
 		Relation: &dsc.Relation{
 			SubjectId:   userID,
 			SubjectType: u.cfg.SCIM.UserObjectType,
@@ -165,8 +182,8 @@ func (u UsersResourceHandler) setIdentity(ctx context.Context, userID, identity 
 	return err
 }
 
-func (u UsersResourceHandler) removeIdentity(ctx context.Context, identity string) error {
-	_, err := u.dirClient.Writer.DeleteObject(ctx, &dsw.DeleteObjectRequest{
+func (u UsersResourceHandler) removeIdentity(ctx context.Context, dirClient *directory.DirectoryClient, identity string) error {
+	_, err := dirClient.Writer.DeleteObject(ctx, &dsw.DeleteObjectRequest{
 		ObjectType:    u.cfg.SCIM.IdentityObjectType,
 		ObjectId:      identity,
 		WithRelations: true,
@@ -175,9 +192,9 @@ func (u UsersResourceHandler) removeIdentity(ctx context.Context, identity strin
 	return err
 }
 
-func (u UsersResourceHandler) setAllIdentities(ctx context.Context, userID string, user *common.User) error {
+func (u UsersResourceHandler) setAllIdentities(ctx context.Context, dirClient *directory.DirectoryClient, userID string, user *common.User) error {
 	if user.UserName != "" {
-		err := u.setIdentity(ctx, userID, user.UserName, map[string]interface{}{IdentityKindKey: "IDENTITY_KIND_USERNAME"})
+		err := u.setIdentity(ctx, dirClient, userID, user.UserName, map[string]interface{}{IdentityKindKey: "IDENTITY_KIND_USERNAME"})
 		if err != nil {
 			return err
 		}
@@ -189,7 +206,7 @@ func (u UsersResourceHandler) setAllIdentities(ctx context.Context, userID strin
 				continue
 			}
 
-			err := u.setIdentity(ctx, userID, email.Value, map[string]interface{}{IdentityKindKey: "IDENTITY_KIND_EMAIL"})
+			err := u.setIdentity(ctx, dirClient, userID, email.Value, map[string]interface{}{IdentityKindKey: "IDENTITY_KIND_EMAIL"})
 			if err != nil {
 				return err
 			}
@@ -197,7 +214,7 @@ func (u UsersResourceHandler) setAllIdentities(ctx context.Context, userID strin
 	}
 
 	if user.ExternalID != "" {
-		err := u.setIdentity(ctx, userID, user.ExternalID, map[string]interface{}{IdentityKindKey: "IDENTITY_KIND_PID"})
+		err := u.setIdentity(ctx, dirClient, userID, user.ExternalID, map[string]interface{}{IdentityKindKey: "IDENTITY_KIND_PID"})
 		if err != nil {
 			return err
 		}
@@ -206,10 +223,10 @@ func (u UsersResourceHandler) setAllIdentities(ctx context.Context, userID strin
 	return nil
 }
 
-func (u UsersResourceHandler) setUserMappings(ctx context.Context, userID string) error {
+func (u UsersResourceHandler) setUserMappings(ctx context.Context, dirClient *directory.DirectoryClient, userID string) error {
 	for _, userMap := range u.cfg.SCIM.UserMappings {
 		if userMap.SubjectID == userID {
-			_, err := u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
+			_, err := dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
 				Relation: &dsc.Relation{
 					SubjectType:     u.cfg.SCIM.UserObjectType,
 					SubjectId:       userMap.SubjectID,
