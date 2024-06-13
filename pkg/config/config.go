@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
@@ -19,6 +20,8 @@ var (
 	DefaultTLSGenDir = os.ExpandEnv("$HOME/.config/aserto/scim/certs")
 )
 
+type TransformConfigMap map[string]interface{}
+
 type Config struct {
 	Logging   logger.Config `json:"logging"`
 	Directory client.Config `json:"directory"`
@@ -29,16 +32,41 @@ type Config struct {
 	} `json:"server"`
 
 	SCIM struct {
-		CreateEmailIdentities bool            `json:"create_email_identities"`
-		CreateRoleGroups      bool            `json:"create_role_groups"`
-		GroupMappings         []ObjectMapping `json:"group_mappings"`
-		UserMappings          []ObjectMapping `json:"user_mappings"`
-		UserObjectType        string          `json:"user_object_type"`
-		GroupMemberRelation   string          `json:"group_member_relation"`
-		GroupObjectType       string          `json:"group_object_type"`
-		IdentityObjectType    string          `json:"identity_object_type"`
-		IdentityRelation      string          `json:"identity_relation"`
+		CreateEmailIdentities bool `json:"create_email_identities"`
+		CreateRoleGroups      bool `json:"create_role_groups"`
+		// GroupMappings         []ObjectMapping `json:"group_mappings"`
+		// UserMappings          []ObjectMapping `json:"user_mappings"`
+		// Transform             TransformConfig `json:"transform"`
 	} `json:"scim"`
+}
+
+type TransformConfig struct {
+	Template            string          `json:"template"`
+	UserObjectType      string          `json:"user_object_type"`
+	GroupMemberRelation string          `json:"group_member_relation"`
+	GroupObjectType     string          `json:"group_object_type"`
+	IdentityObjectType  string          `json:"identity_object_type"`
+	IdentityRelation    string          `json:"identity_relation"`
+	SourceUserType      string          `json:"source_user_type"`
+	SourceGroupType     string          `json:"source_group_type"`
+	SourceRelation      string          `json:"source_relation"`
+	GroupMappings       []ObjectMapping `json:"group_mappings"`
+	UserMappings        []ObjectMapping `json:"user_mappings"`
+	ManagerRelation     string          `json:"manager_relation"`
+}
+
+func (t *TransformConfig) ToMap() (map[string]interface{}, error) {
+	var result map[string]interface{}
+	cfg, err := json.Marshal(t)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal TransformConfig to json")
+	}
+	err = json.Unmarshal(cfg, &result)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal TransformConfig to map")
+	}
+
+	return result, nil
 }
 
 type ObjectMapping struct {
@@ -51,9 +79,10 @@ type ObjectMapping struct {
 
 type AuthConfig struct {
 	Basic struct {
-		Enabled  bool   `json:"enabled"`
-		Username string `json:"username"`
-		Password string `json:"password"`
+		Enabled     bool   `json:"enabled"`
+		Username    string `json:"username"`
+		Password    string `json:"password"`
+		Passthrough bool   `json:"passthrough"`
 	} `json:"basic"`
 	Bearer struct {
 		Enabled bool   `json:"enabled"`
@@ -96,11 +125,14 @@ func NewConfig(configPath string, log *zerolog.Logger, certsGenerator *certs.Gen
 	v.SetDefault("server.certs.tls_ca_cert_path", filepath.Join(DefaultTLSGenDir, "grpc-ca.crt"))
 
 	v.SetDefault("scim.create_email_identities", true)
-	v.SetDefault("scim.user_object_type", "user")
-	v.SetDefault("scim.identity_object_type", "identity")
-	v.SetDefault("scim.identity_relation", "identifier")
-	v.SetDefault("scim.group_object_type", "group")
-	v.SetDefault("scim.group_member_relation", "member")
+	// v.SetDefault("scim.user_object_type", "user")
+	// v.SetDefault("scim.identity_object_type", "identity")
+	// v.SetDefault("scim.identity_relation", "identifier")
+	// v.SetDefault("scim.group_object_type", "group")
+	// v.SetDefault("scim.group_member_relation", "member")
+	// v.SetDefault("scim.source_user_type", "scim.2.0.user")
+	// v.SetDefault("scim.source_group_type", "scim.2.0.group")
+	// v.SetDefault("scim.source_relation", "scim.source")
 
 	configExists, err := fileExists(file)
 	if err != nil {

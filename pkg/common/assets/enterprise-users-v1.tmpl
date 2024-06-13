@@ -1,0 +1,79 @@
+{
+  "objects": [
+    {
+      "id": "{{ $.input.userName }}",
+      "type": "{{ $.vars.user_object_type }}",
+      "displayName": "{{ $.input.displayName }}"
+    },
+    {
+      "id": "{{ $.input.userName }}",
+      "type": "{{ $.vars.identity_object_type }}",
+      "properties": {
+        "verified": true
+      }
+    },
+    {{ range $i, $element := $.input.emails }}
+      {{ if $i }},{{ end }}
+    {
+      "id": "{{ $element.value }}",
+      "type": "{{ $.vars.identity_object_type }}",
+      "properties":{
+        "type": "{{ $element.type }}",
+        "verified": true
+      }
+    }
+    {{ end }}
+    {{ if and ($.input.externalId) (ne $.input.externalId "") }}
+    ,
+    {
+        "id": "{{ $.input.externalId }}",
+        "type": "{{ $.vars.identity_object_type }}",
+        "properties": {
+          "verified": true
+        }
+    }
+    {{ end }}
+  ],
+  "relations":[
+    {
+      "object_type": "{{ $.vars.identity_object_type }}",
+      "object_id": "{{ $.input.userName }}",
+      "relation": "{{ $.vars.identity_relation }}",
+      "subject_type": "{{ $.vars.user_object_type }}",
+      "subject_id": "{{ $.input.userName }}"
+    },
+   {{ range $i, $element := $.input.emails }}
+      {{ if $i }},{{ end }}
+    {
+      "object_type": "{{ $.vars.identity_object_type }}",
+      "object_id": "{{ $element.value }}",
+      "relation": "{{ $.vars.identity_relation }}",
+      "subject_type": "{{ $.vars.user_object_type }}",
+      "subject_id": "{{ $.input.userName }}"
+    }
+    {{ end }}
+    {{ if and ($.input.externalId) (ne $.input.externalId "") }}
+    ,
+    {
+      "object_type": "{{ $.vars.identity_object_type }}",
+      "object_id": "{{ $.input.externalId }}",
+      "relation": "{{ $.vars.identity_relation }}",
+      "subject_type": "{{ $.vars.user_object_type }}",
+      "subject_id": "{{ $.input.userName }}"
+    }
+    {{ end }}
+    {{ $manager := index .input "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User" }}
+    {{ if $manager }}
+    {{ if and ($manager.manager.value) (ne $manager.manager.value "") }}
+    ,
+    {
+      "object_type": "{{ $.vars.user_object_type }}",
+      "object_id": "{{ $.input.userName }}",
+      "relation": "manager",
+      "subject_type": "{{ $.vars.user_object_type }}",
+      "subject_id": "{{ $manager.manager.value }}"
+    }
+    {{ end }}
+    {{ end }}
+  ]
+}

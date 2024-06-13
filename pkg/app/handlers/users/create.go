@@ -7,6 +7,7 @@ import (
 	dsw "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
 	"github.com/aserto-dev/go-directory/pkg/derr"
 	"github.com/aserto-dev/scim/pkg/common"
+	"github.com/aserto-dev/scim/pkg/directory"
 	"github.com/elimity-com/scim"
 	serrors "github.com/elimity-com/scim/errors"
 	"github.com/pkg/errors"
@@ -20,21 +21,37 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
 
-	object, err := common.UserToObject(user)
-	if err != nil {
-		u.logger.Error().Err(err).Msg("failed to convert user to object")
-		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
-	}
-
+	var result scim.Resource
 	dirClient, err := u.getDirectoryClient(r)
 	if err != nil {
 		u.logger.Error().Err(err).Msg("failed to get directory client")
 		return scim.Resource{}, serrors.ScimErrorInternal
 	}
 
-	resp, err := dirClient.Writer.SetObject(r.Context(), &dsw.SetObjectRequest{
+	scimConfig, err := dirClient.GetTransformConfig(r.Context())
+	if err != nil {
+		return scim.Resource{}, err
+	}
+
+	// scimConfig, err := common.TransformConfigFromMap(scimConfigMap)
+	// if err != nil {
+	// 	return scim.Resource{}, err
+	// }
+
+	converter := common.NewConverter(scimConfig)
+	object, err := converter.SCIMUserToObject(user)
+	if err != nil {
+		u.logger.Error().Err(err).Msg("failed to convert user to object")
+		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
+	}
+	sourceUserResp, err := dirClient.Writer.SetObject(r.Context(), &dsw.SetObjectRequest{
 		Object: object,
 	})
+	if err != nil {
+		return scim.Resource{}, err
+	}
+
+	userMap, err := common.ProtobufStructToMap(sourceUserResp.Result.Properties)
 	if err != nil {
 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrAlreadyExists) {
 			return scim.Resource{}, serrors.ScimErrorUniqueness
@@ -42,28 +59,71 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 		return scim.Resource{}, err
 	}
 
-	createdAt := resp.Result.CreatedAt.AsTime()
-	updatedAt := resp.Result.UpdatedAt.AsTime()
-	resource := common.ObjectToResource(resp.Result, scim.Meta{
-		Created:      &createdAt,
-		LastModified: &updatedAt,
-		Version:      resp.Result.Etag,
-	})
+	transformResult, err := common.TransformResource(userMap, scimConfig)
+	if err != nil {
+		u.logger.Error().Err(err).Msg("failed to convert user to object")
+		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
+	}
 
-	err = u.setAllIdentities(r.Context(), dirClient, resp.Result.Id, user)
+	sync := directory.NewSync(scimConfig, dirClient)
+	meta, err := sync.UpdateUser(r.Context(), sourceUserResp.Result.Id, transformResult)
 	if err != nil {
 		return scim.Resource{}, err
 	}
 
-	err = u.setUserGroups(r.Context(), dirClient, resp.Result.Id, user.Groups)
-	if err != nil {
-		return scim.Resource{}, err
-	}
+	// for _, object := range transformResult.Objects {
+	// 	resp, err := dirClient.Writer.SetObject(r.Context(), &dsw.SetObjectRequest{
+	// 		Object: object,
+	// 	})
+	// 	if err != nil {
+	// 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrAlreadyExists) {
+	// 			return scim.Resource{}, serrors.ScimErrorUniqueness
+	// 		}
+	// 		return scim.Resource{}, err
+	// 	}
 
-	err = u.setUserMappings(r.Context(), dirClient, resp.Result.Id)
-	if err != nil {
-		return scim.Resource{}, err
-	}
+	// 	_, err = dirClient.Writer.SetRelation(r.Context(), &dsw.SetRelationRequest{
+	// 		Relation: &dsc.Relation{
+	// 			ObjectType:  resp.Result.Type,
+	// 			ObjectId:    resp.Result.Id,
+	// 			Relation:    u.cfg.SCIM.Transform.SourceRelation,
+	// 			SubjectType: u.cfg.SCIM.Transform.SourceUserType,
+	// 			SubjectId:   sourceUserResp.Result.Id,
+	// 		},
+	// 	})
 
-	return resource, nil
+	// 	if err != nil {
+	// 		return scim.Resource{}, err
+	// 	}
+
+	// 	if object.Type == u.cfg.SCIM.Transform.UserObjectType {
+	// 		err = u.setUserMappings(r.Context(), dirClient, resp.Result.Id)
+	// 		if err != nil {
+	// 			return scim.Resource{}, err
+	// 		}
+	// 	}
+	// }
+
+	// for _, relation := range transformResult.Relations {
+	// 	_, err := dirClient.Writer.SetRelation(r.Context(), &dsw.SetRelationRequest{
+	// 		Relation: relation,
+	// 	})
+	// 	if err != nil {
+	// 		return scim.Resource{}, err
+	// 	}
+	// }
+
+	// err = u.setAllIdentities(r.Context(), dirClient, resp.Result.Id, user)
+	// if err != nil {
+	// 	return scim.Resource{}, err
+	// }
+
+	// err = u.setUserGroups(r.Context(), dirClient, resp.Result.Id, user.Groups)
+	// if err != nil {
+	// 	return scim.Resource{}, err
+	// }
+
+	result = converter.ObjectToResource(sourceUserResp.Result, meta)
+
+	return result, nil
 }

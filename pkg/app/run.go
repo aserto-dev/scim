@@ -13,7 +13,6 @@ import (
 	"github.com/aserto-dev/scim/pkg/app/handlers/groups"
 	"github.com/aserto-dev/scim/pkg/app/handlers/users"
 	"github.com/aserto-dev/scim/pkg/config"
-	"github.com/aserto-dev/scim/pkg/directory"
 	"github.com/elimity-com/scim"
 	"github.com/elimity-com/scim/optional"
 	"github.com/elimity-com/scim/schema"
@@ -35,10 +34,10 @@ func Run(cfgPath string, logWriter logger.Writer, errWriter logger.ErrWriter) er
 		return err
 	}
 
-	dirClient, err := directory.GetDirectoryClient(context.Background(), &cfg.Directory)
-	if err != nil {
-		return err
-	}
+	// dirClient, err := directory.GetDirectoryClient(context.Background(), &cfg.Directory)
+	// if err != nil {
+	// 	return err
+	// }
 
 	userHandler := users.NewUsersResourceHandler(cfg, scimLogger)
 
@@ -54,7 +53,7 @@ func Run(cfgPath string, logWriter logger.Writer, errWriter logger.ErrWriter) er
 		Handler: userHandler,
 	}
 
-	groupHandler := groups.NewGroupResourceHandler(cfg, scimLogger, dirClient)
+	groupHandler := groups.NewGroupResourceHandler(cfg, scimLogger)
 
 	groupType := scim.ResourceType{
 		ID:          optional.NewString("Group"),
@@ -116,24 +115,25 @@ func (app *application) auth(next http.HandlerFunc) http.HandlerFunc {
 
 		username, password, ok := r.BasicAuth()
 		if ok && app.cfg.Basic.Enabled {
-			usernameHash := sha256.Sum256([]byte(username))
-			passwordHash := sha256.Sum256([]byte(password))
-			expectedUsernameHash := sha256.Sum256([]byte(app.cfg.Basic.Username))
-			expectedPasswordHash := sha256.Sum256([]byte(app.cfg.Basic.Password))
-
-			usernameMatch := (subtle.ConstantTimeCompare(usernameHash[:], expectedUsernameHash[:]) == 1)
-			passwordMatch := (subtle.ConstantTimeCompare(passwordHash[:], expectedPasswordHash[:]) == 1)
-
-			if usernameMatch && passwordMatch {
-				next.ServeHTTP(w, r)
-				return
-			} else {
+			if app.cfg.Basic.Passthrough {
 				// let the directory authenticate the user
 				authContext := context.WithValue(r.Context(), "aserto-tenant-id", username)
 				authContext = context.WithValue(authContext, "aserto-api-key", password)
-
 				next.ServeHTTP(w, r.WithContext(authContext))
 				return
+			} else {
+				usernameHash := sha256.Sum256([]byte(username))
+				passwordHash := sha256.Sum256([]byte(password))
+				expectedUsernameHash := sha256.Sum256([]byte(app.cfg.Basic.Username))
+				expectedPasswordHash := sha256.Sum256([]byte(app.cfg.Basic.Password))
+
+				usernameMatch := (subtle.ConstantTimeCompare(usernameHash[:], expectedUsernameHash[:]) == 1)
+				passwordMatch := (subtle.ConstantTimeCompare(passwordHash[:], expectedPasswordHash[:]) == 1)
+
+				if usernameMatch && passwordMatch {
+					next.ServeHTTP(w, r)
+					return
+				}
 			}
 		} else if app.cfg.Bearer.Enabled {
 			reqToken := r.Header.Get("Authorization")

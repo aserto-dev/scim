@@ -20,9 +20,15 @@ func (u UsersResourceHandler) Delete(r *http.Request, id string) error {
 		return serrors.ScimErrorInternal
 	}
 
+	scimConfig, err := dirClient.GetTransformConfig(r.Context())
+	if err != nil {
+		return err
+	}
+
 	relations, err := dirClient.Reader.GetRelations(r.Context(), &dsr.GetRelationsRequest{
-		SubjectType: u.cfg.SCIM.UserObjectType,
+		SubjectType: scimConfig.UserObjectType,
 		SubjectId:   id,
+		Relation:    scimConfig.SourceRelation,
 	})
 	if err != nil {
 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
@@ -31,8 +37,8 @@ func (u UsersResourceHandler) Delete(r *http.Request, id string) error {
 		return err
 	}
 
-	for _, v := range relations.Results {
-		if v.Relation == u.cfg.SCIM.IdentityRelation {
+	if relations != nil {
+		for _, v := range relations.Results {
 			_, err = dirClient.Writer.DeleteObject(r.Context(), &dsw.DeleteObjectRequest{
 				ObjectId:      v.ObjectId,
 				ObjectType:    v.ObjectType,
@@ -45,7 +51,18 @@ func (u UsersResourceHandler) Delete(r *http.Request, id string) error {
 	}
 
 	_, err = dirClient.Writer.DeleteObject(r.Context(), &dsw.DeleteObjectRequest{
-		ObjectType:    u.cfg.SCIM.UserObjectType,
+		ObjectType:    scimConfig.UserObjectType,
+		ObjectId:      id,
+		WithRelations: true,
+	})
+	if err != nil {
+		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
+			return serrors.ScimErrorResourceNotFound(id)
+		}
+	}
+
+	_, err = dirClient.Writer.DeleteObject(r.Context(), &dsw.DeleteObjectRequest{
+		ObjectType:    scimConfig.SourceUserType,
 		ObjectId:      id,
 		WithRelations: true,
 	})
