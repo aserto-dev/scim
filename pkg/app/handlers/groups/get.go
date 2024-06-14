@@ -22,9 +22,9 @@ func (u GroupResourceHandler) Get(r *http.Request, id string) (scim.Resource, er
 	}
 
 	resp, err := dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
-		ObjectType:    scimConfig.GroupObjectType,
+		ObjectType:    scimConfig.SourceGroupType,
 		ObjectId:      id,
-		WithRelations: true,
+		WithRelations: false,
 	})
 	if err != nil {
 		return scim.Resource{}, err
@@ -58,7 +58,7 @@ func (u GroupResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 	}
 
 	resp, err := dirClient.Reader.GetObjects(r.Context(), &dsr.GetObjectsRequest{
-		ObjectType: scimConfig.GroupObjectType,
+		ObjectType: scimConfig.SourceGroupType,
 		Page: &dsc.PaginationRequest{
 			Size: int32(params.Count),
 		},

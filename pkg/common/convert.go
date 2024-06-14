@@ -183,7 +183,7 @@ func (c *Converter) SCIMGroupToObject(group *Group) (*dsc.Object, error) {
 	return object, nil
 }
 
-func TransformResource(userMap map[string]interface{}, cfg *config.TransformConfig) (*msg.Transform, error) {
+func TransformResource(userMap map[string]interface{}, cfg *config.TransformConfig, objType string) (*msg.Transform, error) {
 	template, err := getTemplateContent(cfg.Template)
 	if err != nil {
 		return nil, err
@@ -197,6 +197,7 @@ func TransformResource(userMap map[string]interface{}, cfg *config.TransformConf
 	}
 
 	transformInput["vars"] = vars
+	transformInput["objectType"] = objType
 	transformer := transform.NewGoTemplateTransform(template)
 	return transformer.TransformObject(transformInput)
 }

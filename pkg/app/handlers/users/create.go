@@ -33,11 +33,6 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 		return scim.Resource{}, err
 	}
 
-	// scimConfig, err := common.TransformConfigFromMap(scimConfigMap)
-	// if err != nil {
-	// 	return scim.Resource{}, err
-	// }
-
 	converter := common.NewConverter(scimConfig)
 	object, err := converter.SCIMUserToObject(user)
 	if err != nil {
@@ -59,7 +54,7 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 		return scim.Resource{}, err
 	}
 
-	transformResult, err := common.TransformResource(userMap, scimConfig)
+	transformResult, err := common.TransformResource(userMap, scimConfig, "user")
 	if err != nil {
 		u.logger.Error().Err(err).Msg("failed to convert user to object")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax

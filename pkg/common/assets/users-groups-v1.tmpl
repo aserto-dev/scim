@@ -1,5 +1,6 @@
 {
   "objects": [
+  {{ if eq .objectType "user" }}
     {
       "id": "{{ $.input.userName }}",
       "type": "{{ $.vars.user_object_type }}",
@@ -33,8 +34,16 @@
         }
     }
     {{ end }}
+  {{ else }}
+    {
+      "id": "{{ $.input.displayName }}",
+      "type": "{{ $.vars.group_object_type }}",
+      "displayName": "{{ $.input.displayName }}"
+    }
+  {{ end }}
   ],
   "relations":[
+  {{ if eq .objectType "user" }}
     {
       "object_type": "{{ $.vars.identity_object_type }}",
       "object_id": "{{ $.input.userName }}",
@@ -62,5 +71,32 @@
       "subject_id": "{{ $.input.userName }}"
     }
     {{ end }}
+    {{ $manager := index .input "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User" }}
+    {{ if $manager }}
+    {{ if and ($manager.manager.value) (ne $manager.manager.value "") }}
+    ,
+    {
+      "object_type": "{{ $.vars.user_object_type }}",
+      "object_id": "{{ $.input.userName }}",
+      "relation": "manager",
+      "subject_type": "{{ $.vars.user_object_type }}",
+      "subject_id": "{{ $manager.manager.value }}"
+    }
+    {{ end }}
+    {{ end }}
+   {{ else }}
+   {{ $members := index .input "members" }}
+    {{ if $members }}
+    {{ range $_, $member := $members }}
+    {
+      "object_type": "{{ $.vars.group_object_type }}",
+      "object_id": "{{ $.input.displayName }}",
+      "relation": "member",
+      "subject_type": "{{ $.vars.user_object_type }}",
+      "subject_id": "{{ $member.value }}"
+    }
+    {{ end }}
+    {{ end }}
+   {{ end }}
   ]
 }
