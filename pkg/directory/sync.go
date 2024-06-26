@@ -58,20 +58,6 @@ func (s *Sync) UpdateUser(ctx context.Context, userID string, data *msg.Transfor
 			addedIdentities = append(addedIdentities, resp.Result.Id)
 		}
 
-		// _, err = dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
-		// 	Relation: &dsc.Relation{
-		// 		ObjectType:  resp.Result.Type,
-		// 		ObjectId:    resp.Result.Id,
-		// 		Relation:    transformConfig.SourceRelation,
-		// 		SubjectType: transformConfig.SourceUserType,
-		// 		SubjectId:   userID,
-		// 	},
-		// })
-
-		// if err != nil {
-		// 	return scim.Resource{}, err
-		// }
-
 		if object.Type == s.cfg.UserObjectType {
 			err = s.setUserMappings(ctx, resp.Result.Id)
 			if err != nil {

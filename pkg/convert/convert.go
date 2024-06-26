@@ -1,4 +1,4 @@
-package common
+package convert
 
 import (
 	"encoding/json"
@@ -6,9 +6,12 @@ import (
 	"github.com/aserto-dev/ds-load/sdk/common/msg"
 	"github.com/aserto-dev/ds-load/sdk/transform"
 	dsc "github.com/aserto-dev/go-directory/aserto/directory/common/v3"
+	"github.com/aserto-dev/scim/pkg/common"
 	"github.com/aserto-dev/scim/pkg/config"
+	"github.com/aserto-dev/scim/pkg/model"
 	"github.com/elimity-com/scim"
 	"github.com/elimity-com/scim/optional"
+	"github.com/pkg/errors"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -40,58 +43,28 @@ func (c *Converter) ObjectToResourceAttributes(object *dsc.Object) scim.Resource
 	return attr
 }
 
-// func (c *Converter)ResourceAttributesToObject(resourceAttributes scim.ResourceAttributes, objectType, id string) (*dsc.Object, error) {
-// 	var propKey string
-// 	switch objectType {
-// 	case c.cfg.SCIM.UserObjectType:
-// 		propKey = c.cfg.SCIM.SCIMUserPropertyKey
-// 	case c.cfg.SCIM.GroupObjectType:
-// 		propKey = c.cfg.SCIM.SCIMGroupPropertyKey
-// 	}
-
-// 	props, err := structpb.NewStruct(resourceAttributes)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	// var displayName string
-// 	// if resourceAttributes["displayName"] != nil {
-// 	// 	displayName = resourceAttributes["displayName"].(string)
-// 	// } else {
-// 	// 	displayName = id
-// 	// }
-
-// 	object := &dsc.Object{
-// 		Type:       objectType,
-// 		Properties: props,
-// 		Id:         id,
-// 		// DisplayName: displayName,
-// 	}
-// 	return object, nil
-// }
-
-func ResourceAttributesToUser(attributes scim.ResourceAttributes) (*User, error) {
-	var user User
+func ResourceAttributesToUser(attributes scim.ResourceAttributes) (*model.User, error) {
+	var user model.User
 	data, err := json.Marshal(attributes)
 	if err != nil {
-		return &User{}, err
+		return &model.User{}, err
 	}
 
 	if err := json.Unmarshal(data, &user); err != nil {
-		return &User{}, err
+		return &model.User{}, err
 	}
 	return &user, nil
 }
 
-func ResourceAttributesToGroup(attributes scim.ResourceAttributes) (*Group, error) {
-	var group Group
+func ResourceAttributesToGroup(attributes scim.ResourceAttributes) (*model.Group, error) {
+	var group model.Group
 	data, err := json.Marshal(attributes)
 	if err != nil {
-		return &Group{}, err
+		return &model.Group{}, err
 	}
 
 	if err := json.Unmarshal(data, &group); err != nil {
-		return &Group{}, err
+		return &model.Group{}, err
 	}
 	return &group, nil
 }
@@ -105,7 +78,7 @@ func ToResourceAttributes(value interface{}) (result scim.ResourceAttributes, er
 	return
 }
 
-func UserToResource(meta scim.Meta, user *User) (scim.Resource, error) {
+func UserToResource(meta scim.Meta, user *model.User) (scim.Resource, error) {
 	attributes, err := ToResourceAttributes(&user)
 	if err != nil {
 		return scim.Resource{}, err
@@ -122,7 +95,7 @@ func UserToResource(meta scim.Meta, user *User) (scim.Resource, error) {
 	}, nil
 }
 
-func (c *Converter) SCIMUserToObject(user *User) (*dsc.Object, error) {
+func (c *Converter) SCIMUserToObject(user *model.User) (*dsc.Object, error) {
 	attributes, err := ToResourceAttributes(&user)
 	if err != nil {
 		return nil, err
@@ -154,7 +127,7 @@ func (c *Converter) SCIMUserToObject(user *User) (*dsc.Object, error) {
 	return object, nil
 }
 
-func (c *Converter) SCIMGroupToObject(group *Group) (*dsc.Object, error) {
+func (c *Converter) SCIMGroupToObject(group *model.Group) (*dsc.Object, error) {
 	attributes, err := ToResourceAttributes(&group)
 	if err != nil {
 		return nil, err
@@ -184,7 +157,7 @@ func (c *Converter) SCIMGroupToObject(group *Group) (*dsc.Object, error) {
 }
 
 func TransformResource(userMap map[string]interface{}, cfg *config.TransformConfig, objType string) (*msg.Transform, error) {
-	template, err := getTemplateContent(cfg.Template)
+	template, err := common.GetTemplateContent(cfg.Template)
 	if err != nil {
 		return nil, err
 	}
@@ -215,13 +188,32 @@ func ProtobufStructToMap(s *structpb.Struct) (map[string]interface{}, error) {
 	return m, nil
 }
 
-// func TransformConfigFromMap(t map[string]interface{}) (*config.TransformConfig, error) {
-// 	cfg := &config.TransformConfig{}
+func TransformConfigFromMap(defaults config.TransformConfig, t map[string]interface{}) (*config.TransformConfig, error) {
+	cfg := &config.TransformConfig{
+		CreateEmailIdentities: defaults.CreateEmailIdentities,
+		CreateRoleGroups:      defaults.CreateRoleGroups,
+		Template:              defaults.Template,
+		UserObjectType:        defaults.UserObjectType,
+		GroupMemberRelation:   defaults.GroupMemberRelation,
+		GroupObjectType:       defaults.GroupObjectType,
+		IdentityObjectType:    defaults.IdentityObjectType,
+		IdentityRelation:      defaults.IdentityRelation,
+		RoleObjectType:        defaults.RoleObjectType,
+		RoleRelation:          defaults.RoleRelation,
+		SourceUserType:        defaults.SourceUserType,
+		SourceGroupType:       defaults.SourceGroupType,
+		GroupMappings:         defaults.GroupMappings,
+		UserMappings:          defaults.UserMappings,
+		ManagerRelation:       defaults.ManagerRelation,
+	}
+	jsonData, err := json.Marshal(t)
+	if err != nil {
+		return &config.TransformConfig{}, errors.Wrap(err, "failed to marshal transform config")
+	}
 
-// 	err := mapstructure.Decode(t, cfg)
-// 	if err != nil {
-// 		return &config.TransformConfig{}, errors.Wrap(err, "failed to decode transform config")
-// 	}
+	if err := json.Unmarshal(jsonData, cfg); err != nil {
+		return &config.TransformConfig{}, errors.Wrap(err, "failed to unmarshal transform config")
+	}
 
-// 	return cfg, nil
-// }
+	return cfg, nil
+}

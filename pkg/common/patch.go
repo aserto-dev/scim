@@ -47,8 +47,6 @@ func HandlePatchOPAdd(objectProps scim.ResourceAttributes, op scim.PatchOperatio
 			return nil, err
 		}
 
-		// switch op.Path.AttributePath.AttributeName {
-		// case Emails, Groups:
 		properties := make(map[string]interface{})
 		if op.Path.ValueExpression != nil {
 			if objectProps[op.Path.AttributePath.AttributeName] != nil {
@@ -74,36 +72,16 @@ func HandlePatchOPAdd(objectProps scim.ResourceAttributes, op scim.PatchOperatio
 		} else {
 			properties[*op.Path.SubAttribute] = op.Value
 		}
-
-		// if op.Path.AttributePath.AttributeName == Emails && u.cfg.SCIM.CreateEmailIdentities {
-		// 	err = u.setIdentity(ctx, dirClient, object.Id, op.Value.(string), map[string]interface{}{IdentityKindKey: "IDENTITY_KIND_EMAIL"})
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// } else if op.Path.AttributePath.AttributeName == Groups {
-		// 	err = u.addUserToGroup(ctx, dirClient, object.Id, op.Value.(string))
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// }
-		// }
 	}
 
-	// object.Properties, err = structpb.NewStruct(objectProps)
 	return objectProps, err
 }
 
 func HandlePatchOPRemove(objectProps scim.ResourceAttributes, op scim.PatchOperation) (scim.ResourceAttributes, error) {
 	var err error
-	// objectProps, ok := object.Properties.AsMap()[u.cfg.SCIM.SCIMUserPropertyKey].(map[string]interface{})
-	// if !ok {
-	// 	return errors.New("failed to get user properties")
-	// }
-	// var oldValue interface{}
 
 	switch value := objectProps[op.Path.AttributePath.AttributeName].(type) {
 	case string:
-		// oldValue = objectProps[op.Path.AttributePath.AttributeName]
 		delete(objectProps, op.Path.AttributePath.AttributeName)
 	case []interface{}:
 		ftr, err := filter.ParseAttrExp([]byte(op.Path.ValueExpression.(*filter.AttributeExpression).String()))
@@ -116,7 +94,6 @@ func HandlePatchOPRemove(objectProps scim.ResourceAttributes, op scim.PatchOpera
 			for i, v := range value {
 				originalValue := v.(map[string]interface{})
 				if originalValue[ftr.AttributePath.AttributeName].(string) == ftr.CompareValue {
-					// oldValue = originalValue
 					index = i
 				}
 			}
@@ -127,43 +104,45 @@ func HandlePatchOPRemove(objectProps scim.ResourceAttributes, op scim.PatchOpera
 		}
 	}
 
-	// if op.Path.AttributePath.AttributeName == Emails && u.cfg.SCIM.CreateEmailIdentities {
-	// 	email := oldValue.(map[string]interface{})["value"].(string)
-	// 	err = u.removeIdentity(ctx, dirClient, email)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// } else if op.Path.AttributePath.AttributeName == Groups {
-	// 	group := oldValue.(map[string]interface{})["value"].(string)
-	// 	err = u.removeUserFromGroup(ctx, dirClient, object.Id, group)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-
-	// object.Properties, err = structpb.NewStruct(objectProps)
 	return objectProps, err
 }
 
 func HandlePatchOPReplace(objectProps scim.ResourceAttributes, op scim.PatchOperation) (scim.ResourceAttributes, error) {
 	var err error
-	// objectProps, ok := object.Properties.AsMap()[u.cfg.SCIM.SCIMUserPropertyKey].(map[string]interface{})
-	// if !ok {
-	// 	return errors.New("failed to get user properties")
-	// }
 
-	switch value := op.Value.(type) {
+	switch objectProps[op.Path.AttributePath.AttributeName].(type) {
 	case string:
 		objectProps[op.Path.AttributePath.AttributeName] = op.Value
 	case map[string]interface{}:
-		for k, v := range value {
-			// if k == "active" {
-			// 	objectProps["enabled"] = v
-			// }
-			objectProps[k] = v
+		if op.Path.AttributePath.SubAttribute != nil {
+			objectProps[op.Path.AttributePath.AttributeName].(map[string]interface{})[*op.Path.AttributePath.SubAttribute] = op.Value
+		} else {
+			objectProps[op.Path.AttributePath.AttributeName] = op.Value
+		}
+	case []interface{}:
+		if op.Path.ValueExpression == nil {
+			objectProps[op.Path.AttributePath.AttributeName] = op.Value
+		} else {
+			ftr, err := filter.ParseAttrExp([]byte(op.Path.ValueExpression.(*filter.AttributeExpression).String()))
+			if err != nil {
+				return nil, err
+			}
+
+			index := -1
+			if ftr.Operator == filter.EQ {
+				for i, v := range objectProps[op.Path.AttributePath.AttributeName].([]interface{}) {
+					originalValue := v.(map[string]interface{})
+					if originalValue[ftr.AttributePath.AttributeName].(string) == ftr.CompareValue {
+						index = i
+					}
+				}
+				if index == -1 {
+					return nil, serrors.ScimErrorMutability
+				}
+				objectProps[op.Path.AttributePath.AttributeName].([]interface{})[index].(map[string]interface{})[*op.Path.SubAttribute] = op.Value
+			}
 		}
 	}
 
-	// object.Properties, err = structpb.NewStruct(objectProps)
 	return objectProps, err
 }

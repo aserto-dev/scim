@@ -12,7 +12,7 @@ func Assets() embed.FS {
 	return staticAssets
 }
 
-func getTemplateContent(templateName string) ([]byte, error) {
+func GetTemplateContent(templateName string) ([]byte, error) {
 	var templateContent []byte
 	var err error
 	templateFile := fmt.Sprintf("assets/%s.tmpl", templateName)

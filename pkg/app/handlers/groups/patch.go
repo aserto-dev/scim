@@ -8,6 +8,7 @@ import (
 	dsw "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
 	"github.com/aserto-dev/go-directory/pkg/derr"
 	"github.com/aserto-dev/scim/pkg/common"
+	"github.com/aserto-dev/scim/pkg/convert"
 	"github.com/aserto-dev/scim/pkg/directory"
 	"github.com/elimity-com/scim"
 	serrors "github.com/elimity-com/scim/errors"
@@ -24,7 +25,11 @@ func (u GroupResourceHandler) Patch(r *http.Request, id string, operations []sci
 		return scim.Resource{}, serrors.ScimErrorInternal
 	}
 
-	scimConfig, err := dirClient.GetTransformConfig(r.Context())
+	scimConfigMap, err := dirClient.GetTransformConfigMap(r.Context())
+	if err != nil {
+		return scim.Resource{}, err
+	}
+	scimConfig, err := convert.TransformConfigFromMap(u.cfg.SCIM.TransformDefaults, scimConfigMap)
 	if err != nil {
 		return scim.Resource{}, err
 	}
@@ -41,7 +46,7 @@ func (u GroupResourceHandler) Patch(r *http.Request, id string, operations []sci
 		return scim.Resource{}, err
 	}
 
-	converter := common.NewConverter(scimConfig)
+	converter := convert.NewConverter(scimConfig)
 	var attr scim.ResourceAttributes
 	oldAttr := converter.ObjectToResourceAttributes(getObjResp.Result)
 
@@ -79,7 +84,7 @@ func (u GroupResourceHandler) Patch(r *http.Request, id string, operations []sci
 	// 	return scim.Resource{}, err
 	// }
 
-	transformResult, err := common.TransformResource(attr, scimConfig, "group")
+	transformResult, err := convert.TransformResource(attr, scimConfig, "group")
 	if err != nil {
 		u.logger.Error().Err(err).Msg("failed to convert group to object")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
@@ -108,158 +113,3 @@ func (u GroupResourceHandler) Patch(r *http.Request, id string, operations []sci
 
 	return resource, nil
 }
-
-// func (u GroupResourceHandler) handlePatchOPAdd(objectProps scim.ResourceAttributes, op scim.PatchOperation) (scim.ResourceAttributes, error) {
-// 	var err error
-// 	// objectProps := object.Properties.AsMap()
-// 	if op.Path == nil || op.Path.ValueExpression == nil {
-// 		// simple add property
-// 		switch value := op.Value.(type) {
-// 		case string:
-// 			if objectProps[op.Path.AttributePath.AttributeName] != nil {
-// 				return nil, serrors.ScimErrorUniqueness
-// 			}
-// 			objectProps[op.Path.AttributePath.AttributeName] = op.Value
-// 		case map[string]interface{}:
-// 			for k, v := range value {
-// 				if objectProps[k] != nil {
-// 					return nil, serrors.ScimErrorUniqueness
-// 				}
-// 				objectProps[k] = v
-// 			}
-// 		case []interface{}:
-// 			for _, v := range value {
-// 				switch val := v.(type) {
-// 				case string:
-// 					objectProps[op.Path.AttributePath.AttributeName] = append(objectProps[op.Path.AttributePath.AttributeName].([]interface{}), v)
-// 				case map[string]interface{}:
-// 					properties := val
-// 					objectProps[op.Path.AttributePath.AttributeName] = append(objectProps[op.Path.AttributePath.AttributeName].([]interface{}), properties)
-// 					// if op.Path.AttributePath.AttributeName == GroupMembers {
-// 					// 	err = u.addUserToGroup(ctx, properties["value"].(string), object.Id)
-// 					// 	if err != nil {
-// 					// 		return err
-// 					// 	}
-// 					// }
-// 				}
-// 			}
-// 		}
-// 	}
-
-// 	// object.Properties, err = structpb.NewStruct(objectProps)
-// 	return objectProps, err
-// }
-
-// func (u GroupResourceHandler) handlePatchOPRemove(ctx context.Context, object *dsc.Object, op scim.PatchOperation) error {
-// 	var err error
-// 	objectProps := object.Properties.AsMap()
-// 	// var oldValue interface{}
-
-// 	switch value := objectProps[op.Path.AttributePath.AttributeName].(type) {
-// 	case string:
-// 		// oldValue = objectProps[op.Path.AttributePath.AttributeName]
-// 		delete(objectProps, op.Path.AttributePath.AttributeName)
-// 	case []interface{}:
-// 		ftr, err := filter.ParseAttrExp([]byte(op.Path.ValueExpression.(*filter.AttributeExpression).String()))
-// 		if err != nil {
-// 			return err
-// 		}
-
-// 		index := -1
-// 		if ftr.Operator == filter.EQ {
-// 			for i, v := range value {
-// 				originalValue := v.(map[string]interface{})
-// 				if originalValue[ftr.AttributePath.AttributeName].(string) == ftr.CompareValue {
-// 					// oldValue = originalValue
-// 					index = i
-// 				}
-// 			}
-// 			if index == -1 {
-// 				return serrors.ScimErrorMutability
-// 			}
-// 			objectProps[op.Path.AttributePath.AttributeName] = append(objectProps[op.Path.AttributePath.AttributeName].([]interface{})[:index], objectProps[op.Path.AttributePath.AttributeName].([]interface{})[index+1:]...)
-// 		}
-// 	}
-
-// 	// if op.Path.AttributePath.AttributeName == GroupMembers {
-// 	// 	user := oldValue.(map[string]interface{})["value"].(string)
-// 	// 	err = u.removeUserFromGroup(ctx, user, object.Id)
-// 	// 	if err != nil {
-// 	// 		return err
-// 	// 	}
-// 	// }
-
-// 	object.Properties, err = structpb.NewStruct(objectProps)
-// 	return err
-// }
-
-// func (u GroupResourceHandler) handlePatchOPReplace(object *dsc.Object, op scim.PatchOperation) error {
-// 	var err error
-// 	objectProps := object.Properties.AsMap()
-
-// 	switch value := op.Value.(type) {
-// 	case string:
-// 		objectProps[op.Path.AttributePath.AttributeName] = op.Value
-// 	case map[string]interface{}:
-// 		for k, v := range value {
-// 			objectProps[k] = v
-// 		}
-// 	}
-
-// 	object.Properties, err = structpb.NewStruct(objectProps)
-// 	return err
-// }
-
-// func (u GroupResourceHandler) addUserToGroup(ctx context.Context, userID, group string) error {
-// 	rel, err := u.dirClient.Reader.GetRelation(ctx, &dsr.GetRelationRequest{
-// 		SubjectType: u.cfg.SCIM.Transform.UserObjectType,
-// 		SubjectId:   userID,
-// 		ObjectType:  u.cfg.SCIM.Transform.GroupObjectType,
-// 		ObjectId:    group,
-// 		Relation:    u.cfg.SCIM.Transform.GroupMemberRelation,
-// 	})
-// 	if err != nil {
-// 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrRelationNotFound) {
-// 			_, err = u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
-// 				Relation: &dsc.Relation{
-// 					SubjectId:   userID,
-// 					SubjectType: u.cfg.SCIM.Transform.UserObjectType,
-// 					Relation:    u.cfg.SCIM.Transform.GroupMemberRelation,
-// 					ObjectType:  u.cfg.SCIM.Transform.GroupObjectType,
-// 					ObjectId:    group,
-// 				}})
-// 			return err
-// 		}
-// 		return err
-// 	}
-
-// 	if rel != nil {
-// 		return serrors.ScimErrorUniqueness
-// 	}
-// 	return nil
-// }
-
-// func (u GroupResourceHandler) removeUserFromGroup(ctx context.Context, userID, group string) error {
-// 	_, err := u.dirClient.Reader.GetRelation(ctx, &dsr.GetRelationRequest{
-// 		SubjectType: u.cfg.SCIM.Transform.UserObjectType,
-// 		SubjectId:   userID,
-// 		ObjectType:  u.cfg.SCIM.Transform.GroupObjectType,
-// 		ObjectId:    group,
-// 		Relation:    u.cfg.SCIM.Transform.GroupMemberRelation,
-// 	})
-// 	if err != nil {
-// 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrRelationNotFound) {
-// 			return serrors.ScimErrorMutability
-// 		}
-// 		return err
-// 	}
-
-// 	_, err = u.dirClient.Writer.DeleteRelation(ctx, &dsw.DeleteRelationRequest{
-// 		SubjectType: u.cfg.SCIM.Transform.UserObjectType,
-// 		SubjectId:   userID,
-// 		ObjectType:  u.cfg.SCIM.Transform.GroupObjectType,
-// 		ObjectId:    group,
-// 		Relation:    u.cfg.SCIM.Transform.GroupMemberRelation,
-// 	})
-// 	return err
-// }

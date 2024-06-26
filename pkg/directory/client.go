@@ -2,13 +2,10 @@ package directory
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/aserto-dev/go-aserto/client"
 	dsr3 "github.com/aserto-dev/go-directory/aserto/directory/reader/v3"
 	dsw3 "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
-	"github.com/aserto-dev/scim/pkg/config"
-	"github.com/pkg/errors"
 )
 
 type DirectoryClient struct {
@@ -57,23 +54,4 @@ func (d *DirectoryClient) GetTransformConfigMap(ctx context.Context) (map[string
 	}
 
 	return varsResp.Result.Properties.AsMap(), nil
-}
-
-func (d *DirectoryClient) GetTransformConfig(ctx context.Context) (*config.TransformConfig, error) {
-	t, err := d.GetTransformConfigMap(ctx)
-	if err != nil {
-		return &config.TransformConfig{}, err
-	}
-
-	cfg := &config.TransformConfig{}
-	jsonData, err := json.Marshal(t)
-	if err != nil {
-		return &config.TransformConfig{}, errors.Wrap(err, "failed to marshal transform config")
-	}
-
-	if err := json.Unmarshal(jsonData, cfg); err != nil {
-		return &config.TransformConfig{}, errors.Wrap(err, "failed to unmarshal transform config")
-	}
-
-	return cfg, nil
 }

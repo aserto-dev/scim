@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/base64"
 	"net/http"
 	"strings"
 	"time"
@@ -12,10 +13,12 @@ import (
 	"github.com/aserto-dev/logger"
 	"github.com/aserto-dev/scim/pkg/app/handlers/groups"
 	"github.com/aserto-dev/scim/pkg/app/handlers/users"
+	"github.com/aserto-dev/scim/pkg/common"
 	"github.com/aserto-dev/scim/pkg/config"
 	"github.com/elimity-com/scim"
 	"github.com/elimity-com/scim/optional"
 	"github.com/elimity-com/scim/schema"
+	"github.com/rs/zerolog"
 )
 
 func Run(cfgPath string, logWriter logger.Writer, errWriter logger.ErrWriter) error {
@@ -33,11 +36,6 @@ func Run(cfgPath string, logWriter logger.Writer, errWriter logger.ErrWriter) er
 	if err != nil {
 		return err
 	}
-
-	// dirClient, err := directory.GetDirectoryClient(context.Background(), &cfg.Directory)
-	// if err != nil {
-	// 	return err
-	// }
 
 	userHandler := users.NewUsersResourceHandler(cfg, scimLogger)
 
@@ -83,7 +81,7 @@ func Run(cfgPath string, logWriter logger.Writer, errWriter logger.ErrWriter) er
 		},
 	}
 
-	server, err := scim.NewServer(serverArgs)
+	server, err := scim.NewServer(serverArgs, scim.WithLogger(NewLogger(scimLogger)))
 	if err != nil {
 		return err
 	}
@@ -108,7 +106,7 @@ type application struct {
 
 func (app *application) auth(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !app.cfg.Basic.Enabled && !app.cfg.Bearer.Enabled {
+		if app.cfg.Anonymous {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -117,8 +115,8 @@ func (app *application) auth(next http.HandlerFunc) http.HandlerFunc {
 		if ok && app.cfg.Basic.Enabled {
 			if app.cfg.Basic.Passthrough {
 				// let the directory authenticate the user
-				authContext := context.WithValue(r.Context(), "aserto-tenant-id", username)
-				authContext = context.WithValue(authContext, "aserto-api-key", password)
+				authContext := context.WithValue(r.Context(), common.ContextKeyTenantID, username)
+				authContext = context.WithValue(authContext, common.ContextKeyAPIKey, password)
 				next.ServeHTTP(w, r.WithContext(authContext))
 				return
 			} else {
@@ -139,6 +137,16 @@ func (app *application) auth(next http.HandlerFunc) http.HandlerFunc {
 			reqToken := r.Header.Get("Authorization")
 			splitToken := strings.Split(reqToken, "Bearer ")
 			if len(splitToken) == 2 {
+				if app.cfg.Bearer.Passthrough {
+					// let the directory authenticate the user
+					username, password, ok := app.parseToken(splitToken[1])
+					if ok {
+						authContext := context.WithValue(r.Context(), common.ContextKeyTenantID, username)
+						authContext = context.WithValue(authContext, common.ContextKeyAPIKey, password)
+						next.ServeHTTP(w, r.WithContext(authContext))
+						return
+					}
+				}
 				if subtle.ConstantTimeCompare([]byte(app.cfg.Bearer.Token), []byte(splitToken[1])) == 1 {
 					next.ServeHTTP(w, r)
 					return
@@ -151,10 +159,29 @@ func (app *application) auth(next http.HandlerFunc) http.HandlerFunc {
 	})
 }
 
-// func (app *application) tenantHandler(next http.HandlerFunc) http.HandlerFunc {
-// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 		split := strings.Split(r.URL.Path, "/")
-// 		r.SetPathValue("tenant-id", split[1])
-// 		http.StripPrefix("/"+split[1], next).ServeHTTP(w, r)
-// 	})
-// }
+func (app *application) parseToken(auth string) (username, password string, ok bool) {
+	c, err := base64.StdEncoding.DecodeString(auth)
+	if err != nil {
+		return "", "", false
+	}
+	cs := string(c)
+	username, password, ok = strings.Cut(cs, ":")
+	if !ok {
+		return "", "", false
+	}
+	return username, password, true
+}
+
+type scimLogger struct {
+	log *zerolog.Logger
+}
+
+func NewLogger(l *zerolog.Logger) scimLogger {
+	return scimLogger{
+		log: l,
+	}
+}
+
+func (l scimLogger) Error(args ...interface{}) {
+	l.log.Error().Any("args", args).Msg("error occured")
+}

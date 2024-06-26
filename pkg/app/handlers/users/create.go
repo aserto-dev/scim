@@ -6,7 +6,7 @@ import (
 	cerr "github.com/aserto-dev/errors"
 	dsw "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
 	"github.com/aserto-dev/go-directory/pkg/derr"
-	"github.com/aserto-dev/scim/pkg/common"
+	"github.com/aserto-dev/scim/pkg/convert"
 	"github.com/aserto-dev/scim/pkg/directory"
 	"github.com/elimity-com/scim"
 	serrors "github.com/elimity-com/scim/errors"
@@ -15,7 +15,7 @@ import (
 
 func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAttributes) (scim.Resource, error) {
 	u.logger.Trace().Any("attributes", attributes).Msg("creating user")
-	user, err := common.ResourceAttributesToUser(attributes)
+	user, err := convert.ResourceAttributesToUser(attributes)
 	if err != nil {
 		u.logger.Error().Err(err).Msg("failed to convert attributes to user")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
@@ -28,12 +28,16 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 		return scim.Resource{}, serrors.ScimErrorInternal
 	}
 
-	scimConfig, err := dirClient.GetTransformConfig(r.Context())
+	scimConfigMap, err := dirClient.GetTransformConfigMap(r.Context())
+	if err != nil {
+		return scim.Resource{}, err
+	}
+	scimConfig, err := convert.TransformConfigFromMap(u.cfg.SCIM.TransformDefaults, scimConfigMap)
 	if err != nil {
 		return scim.Resource{}, err
 	}
 
-	converter := common.NewConverter(scimConfig)
+	converter := convert.NewConverter(scimConfig)
 	object, err := converter.SCIMUserToObject(user)
 	if err != nil {
 		u.logger.Error().Err(err).Msg("failed to convert user to object")
@@ -46,7 +50,7 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 		return scim.Resource{}, err
 	}
 
-	userMap, err := common.ProtobufStructToMap(sourceUserResp.Result.Properties)
+	userMap, err := convert.ProtobufStructToMap(sourceUserResp.Result.Properties)
 	if err != nil {
 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrAlreadyExists) {
 			return scim.Resource{}, serrors.ScimErrorUniqueness
@@ -54,7 +58,7 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 		return scim.Resource{}, err
 	}
 
-	transformResult, err := common.TransformResource(userMap, scimConfig, "user")
+	transformResult, err := convert.TransformResource(userMap, scimConfig, "user")
 	if err != nil {
 		u.logger.Error().Err(err).Msg("failed to convert user to object")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
@@ -65,58 +69,6 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 	if err != nil {
 		return scim.Resource{}, err
 	}
-
-	// for _, object := range transformResult.Objects {
-	// 	resp, err := dirClient.Writer.SetObject(r.Context(), &dsw.SetObjectRequest{
-	// 		Object: object,
-	// 	})
-	// 	if err != nil {
-	// 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrAlreadyExists) {
-	// 			return scim.Resource{}, serrors.ScimErrorUniqueness
-	// 		}
-	// 		return scim.Resource{}, err
-	// 	}
-
-	// 	_, err = dirClient.Writer.SetRelation(r.Context(), &dsw.SetRelationRequest{
-	// 		Relation: &dsc.Relation{
-	// 			ObjectType:  resp.Result.Type,
-	// 			ObjectId:    resp.Result.Id,
-	// 			Relation:    u.cfg.SCIM.Transform.SourceRelation,
-	// 			SubjectType: u.cfg.SCIM.Transform.SourceUserType,
-	// 			SubjectId:   sourceUserResp.Result.Id,
-	// 		},
-	// 	})
-
-	// 	if err != nil {
-	// 		return scim.Resource{}, err
-	// 	}
-
-	// 	if object.Type == u.cfg.SCIM.Transform.UserObjectType {
-	// 		err = u.setUserMappings(r.Context(), dirClient, resp.Result.Id)
-	// 		if err != nil {
-	// 			return scim.Resource{}, err
-	// 		}
-	// 	}
-	// }
-
-	// for _, relation := range transformResult.Relations {
-	// 	_, err := dirClient.Writer.SetRelation(r.Context(), &dsw.SetRelationRequest{
-	// 		Relation: relation,
-	// 	})
-	// 	if err != nil {
-	// 		return scim.Resource{}, err
-	// 	}
-	// }
-
-	// err = u.setAllIdentities(r.Context(), dirClient, resp.Result.Id, user)
-	// if err != nil {
-	// 	return scim.Resource{}, err
-	// }
-
-	// err = u.setUserGroups(r.Context(), dirClient, resp.Result.Id, user.Groups)
-	// if err != nil {
-	// 	return scim.Resource{}, err
-	// }
 
 	result = converter.ObjectToResource(sourceUserResp.Result, meta)
 

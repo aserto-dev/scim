@@ -1,5 +1,5 @@
 // Do not edit. This file is auto-generated.
-package common
+package model
 
 // User Account
 type User struct {

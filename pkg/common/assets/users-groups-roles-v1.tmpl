@@ -34,6 +34,20 @@
         }
     }
     {{ end }}
+    {{ if $.input.roles }}
+    {{ range $i, $element := $.input.roles }}
+    ,
+    {
+      "id": "{{ $element.value }}",
+      "type": "{{ $.vars.role_object_type }}",
+      "displayName": "{{ $element.display }}",
+      "properties": {
+        "type": "{{ $element.type }}",
+        "primary": {{ $element.primary }}
+      }
+    }
+    {{ end }}
+    {{ end }}
   {{ else }}
     {
       "id": "{{ $.input.displayName }}",
@@ -81,6 +95,18 @@
       "relation": "{{ $.vars.manager_relation }}",
       "subject_type": "{{ $.vars.user_object_type }}",
       "subject_id": "{{ $manager.manager.value }}"
+    }
+    {{ end }}
+    {{ end }}
+    {{ if $.input.roles }}
+    {{ range $i, $element := $.input.roles }}
+    ,
+    {
+      "object_type": "{{ $.vars.role_object_type }}",
+      "object_id": "{{ $element.value }}",
+      "relation": "{{ $.vars.role_relation }}",
+      "subject_type": "{{ $.vars.user_object_type }}",
+      "subject_id": "{{ $.input.userName }}"
     }
     {{ end }}
     {{ end }}

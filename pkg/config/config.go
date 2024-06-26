@@ -32,27 +32,26 @@ type Config struct {
 	} `json:"server"`
 
 	SCIM struct {
-		CreateEmailIdentities bool `json:"create_email_identities"`
-		CreateRoleGroups      bool `json:"create_role_groups"`
-		// GroupMappings         []ObjectMapping `json:"group_mappings"`
-		// UserMappings          []ObjectMapping `json:"user_mappings"`
-		// Transform             TransformConfig `json:"transform"`
+		TransformDefaults TransformConfig `json:"transform_defaults"`
 	} `json:"scim"`
 }
 
 type TransformConfig struct {
-	Template            string          `json:"template"`
-	UserObjectType      string          `json:"user_object_type"`
-	GroupMemberRelation string          `json:"group_member_relation"`
-	GroupObjectType     string          `json:"group_object_type"`
-	IdentityObjectType  string          `json:"identity_object_type"`
-	IdentityRelation    string          `json:"identity_relation"`
-	SourceUserType      string          `json:"source_user_type"`
-	SourceGroupType     string          `json:"source_group_type"`
-	SourceRelation      string          `json:"source_relation"`
-	GroupMappings       []ObjectMapping `json:"group_mappings"`
-	UserMappings        []ObjectMapping `json:"user_mappings"`
-	ManagerRelation     string          `json:"manager_relation"`
+	CreateEmailIdentities bool            `json:"create_email_identities"`
+	CreateRoleGroups      bool            `json:"create_role_groups"`
+	Template              string          `json:"template"`
+	UserObjectType        string          `json:"user_object_type"`
+	GroupMemberRelation   string          `json:"group_member_relation"`
+	GroupObjectType       string          `json:"group_object_type"`
+	IdentityObjectType    string          `json:"identity_object_type"`
+	IdentityRelation      string          `json:"identity_relation"`
+	RoleObjectType        string          `json:"role_object_type"`
+	RoleRelation          string          `json:"role_relation"`
+	SourceUserType        string          `json:"source_user_type"`
+	SourceGroupType       string          `json:"source_group_type"`
+	GroupMappings         []ObjectMapping `json:"group_mappings"`
+	UserMappings          []ObjectMapping `json:"user_mappings"`
+	ManagerRelation       string          `json:"manager_relation"`
 }
 
 func (t *TransformConfig) ToMap() (map[string]interface{}, error) {
@@ -78,15 +77,17 @@ type ObjectMapping struct {
 }
 
 type AuthConfig struct {
-	Basic struct {
+	Anonymous bool `json:"anonymous"`
+	Basic     struct {
 		Enabled     bool   `json:"enabled"`
 		Username    string `json:"username"`
 		Password    string `json:"password"`
 		Passthrough bool   `json:"passthrough"`
 	} `json:"basic"`
 	Bearer struct {
-		Enabled bool   `json:"enabled"`
-		Token   string `json:"token"`
+		Enabled     bool   `json:"enabled"`
+		Token       string `json:"token"`
+		Passthrough bool   `json:"passthrough"`
 	} `json:"bearer"`
 }
 
@@ -124,15 +125,16 @@ func NewConfig(configPath string, log *zerolog.Logger, certsGenerator *certs.Gen
 	v.SetDefault("server.certs.tls_cert_path", filepath.Join(DefaultTLSGenDir, "grpc.crt"))
 	v.SetDefault("server.certs.tls_ca_cert_path", filepath.Join(DefaultTLSGenDir, "grpc-ca.crt"))
 
-	v.SetDefault("scim.create_email_identities", true)
-	// v.SetDefault("scim.user_object_type", "user")
-	// v.SetDefault("scim.identity_object_type", "identity")
-	// v.SetDefault("scim.identity_relation", "identifier")
-	// v.SetDefault("scim.group_object_type", "group")
-	// v.SetDefault("scim.group_member_relation", "member")
-	// v.SetDefault("scim.source_user_type", "scim.2.0.user")
-	// v.SetDefault("scim.source_group_type", "scim.2.0.group")
-	// v.SetDefault("scim.source_relation", "scim.source")
+	v.SetDefault("scim.transform_defaults.create_email_identities", true)
+	v.SetDefault("scim.transform_defaults.group_object_type", "group")
+	v.SetDefault("scim.transform_defaults.group_member_relation", "member")
+	v.SetDefault("scim.transform_defaults.identity_object_type", "identity")
+	v.SetDefault("scim.transform_defaults.identity_relation", "identifier")
+	v.SetDefault("scim.transform_defaults.manager_relation", "manager")
+	v.SetDefault("scim.transform_defaults.source_group_type", "scim.2.0.group")
+	v.SetDefault("scim.transform_defaults.source_user_type", "scim.2.0.user")
+	v.SetDefault("scim.transform_defaults.template", "users-groups-roles-v1")
+	v.SetDefault("scim.transform_defaults.user_object_type", "user")
 
 	configExists, err := fileExists(file)
 	if err != nil {

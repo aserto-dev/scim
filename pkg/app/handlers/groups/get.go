@@ -5,18 +5,24 @@ import (
 
 	dsc "github.com/aserto-dev/go-directory/aserto/directory/common/v3"
 	dsr "github.com/aserto-dev/go-directory/aserto/directory/reader/v3"
+	"github.com/aserto-dev/scim/pkg/convert"
 	"github.com/elimity-com/scim"
 	serrors "github.com/elimity-com/scim/errors"
 )
 
 func (u GroupResourceHandler) Get(r *http.Request, id string) (scim.Resource, error) {
+	u.logger.Trace().Str("id", id).Msg("getting group")
 	dirClient, err := u.getDirectoryClient(r)
 	if err != nil {
 		u.logger.Error().Err(err).Msg("failed to get directory client")
 		return scim.Resource{}, serrors.ScimErrorInternal
 	}
 
-	scimConfig, err := dirClient.GetTransformConfig(r.Context())
+	scimConfigMap, err := dirClient.GetTransformConfigMap(r.Context())
+	if err != nil {
+		return scim.Resource{}, err
+	}
+	scimConfig, err := convert.TransformConfigFromMap(u.cfg.SCIM.TransformDefaults, scimConfigMap)
 	if err != nil {
 		return scim.Resource{}, err
 	}
@@ -42,6 +48,7 @@ func (u GroupResourceHandler) Get(r *http.Request, id string) (scim.Resource, er
 }
 
 func (u GroupResourceHandler) GetAll(r *http.Request, params scim.ListRequestParams) (scim.Page, error) {
+	u.logger.Trace().Msg("getting all groups")
 	var (
 		resources = make([]scim.Resource, 0)
 	)
@@ -52,7 +59,11 @@ func (u GroupResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 		return scim.Page{}, serrors.ScimErrorInternal
 	}
 
-	scimConfig, err := dirClient.GetTransformConfig(r.Context())
+	scimConfigMap, err := dirClient.GetTransformConfigMap(r.Context())
+	if err != nil {
+		return scim.Page{}, err
+	}
+	scimConfig, err := convert.TransformConfigFromMap(u.cfg.SCIM.TransformDefaults, scimConfigMap)
 	if err != nil {
 		return scim.Page{}, err
 	}

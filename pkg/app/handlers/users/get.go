@@ -8,8 +8,8 @@ import (
 	dsc "github.com/aserto-dev/go-directory/aserto/directory/common/v3"
 	dsr "github.com/aserto-dev/go-directory/aserto/directory/reader/v3"
 	"github.com/aserto-dev/go-directory/pkg/derr"
-	"github.com/aserto-dev/scim/pkg/common"
 	"github.com/aserto-dev/scim/pkg/config"
+	"github.com/aserto-dev/scim/pkg/convert"
 	"github.com/aserto-dev/scim/pkg/directory"
 	"github.com/elimity-com/scim"
 	serrors "github.com/elimity-com/scim/errors"
@@ -25,12 +25,16 @@ func (u UsersResourceHandler) Get(r *http.Request, id string) (scim.Resource, er
 		return scim.Resource{}, serrors.ScimErrorInternal
 	}
 
-	scimConfig, err := dirClient.GetTransformConfig(r.Context())
+	scimConfigMap, err := dirClient.GetTransformConfigMap(r.Context())
+	if err != nil {
+		return scim.Resource{}, err
+	}
+	scimConfig, err := convert.TransformConfigFromMap(u.cfg.SCIM.TransformDefaults, scimConfigMap)
 	if err != nil {
 		return scim.Resource{}, err
 	}
 
-	converter := common.NewConverter(scimConfig)
+	converter := convert.NewConverter(scimConfig)
 
 	resp, err := dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
 		ObjectType:    scimConfig.SourceUserType,
@@ -75,12 +79,16 @@ func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 		return scim.Page{}, serrors.ScimErrorInternal
 	}
 
-	scimConfig, err := dirClient.GetTransformConfig(r.Context())
+	scimConfigMap, err := dirClient.GetTransformConfigMap(r.Context())
+	if err != nil {
+		return scim.Page{}, err
+	}
+	scimConfig, err := convert.TransformConfigFromMap(u.cfg.SCIM.TransformDefaults, scimConfigMap)
 	if err != nil {
 		return scim.Page{}, err
 	}
 
-	converter := common.NewConverter(scimConfig)
+	converter := convert.NewConverter(scimConfig)
 
 	for {
 		resp, err := u.getUsers(r.Context(), dirClient, scimConfig, pageSize, pageToken)

@@ -7,6 +7,7 @@ import (
 	dsr "github.com/aserto-dev/go-directory/aserto/directory/reader/v3"
 	dsw "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
 	"github.com/aserto-dev/go-directory/pkg/derr"
+	"github.com/aserto-dev/scim/pkg/convert"
 	serrors "github.com/elimity-com/scim/errors"
 	"github.com/pkg/errors"
 )
@@ -20,7 +21,11 @@ func (u UsersResourceHandler) Delete(r *http.Request, id string) error {
 		return serrors.ScimErrorInternal
 	}
 
-	scimConfig, err := dirClient.GetTransformConfig(r.Context())
+	scimConfigMap, err := dirClient.GetTransformConfigMap(r.Context())
+	if err != nil {
+		return err
+	}
+	scimConfig, err := convert.TransformConfigFromMap(u.cfg.SCIM.TransformDefaults, scimConfigMap)
 	if err != nil {
 		return err
 	}
@@ -28,7 +33,7 @@ func (u UsersResourceHandler) Delete(r *http.Request, id string) error {
 	relations, err := dirClient.Reader.GetRelations(r.Context(), &dsr.GetRelationsRequest{
 		SubjectType: scimConfig.UserObjectType,
 		SubjectId:   id,
-		Relation:    scimConfig.SourceRelation,
+		Relation:    scimConfig.IdentityRelation,
 	})
 	if err != nil {
 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
