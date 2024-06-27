@@ -12,7 +12,7 @@ type Group struct {
 // A list of members of the Group.
 type GroupMember struct {
 	Value   string `json:"value"`
-	Ref     string `json:"$ref"`
-	Type    string `json:"type"`
+	Ref     string `json:"$ref,omitempty"`
+	Type    string `json:"type,omitempty"`
 	Display string `json:"display,omitempty"`
 }

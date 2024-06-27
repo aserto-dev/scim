@@ -87,7 +87,8 @@
    {{ else }}
    {{ $members := index .input "members" }}
     {{ if $members }}
-    {{ range $_, $member := $members }}
+    {{ range $i, $member := $members }}
+    {{ if $i }},{{ end }}
     {
       "object_type": "{{ $.vars.group_object_type }}",
       "object_id": "{{ $.input.displayName }}",

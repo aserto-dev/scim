@@ -110,36 +110,46 @@ func HandlePatchOPRemove(objectProps scim.ResourceAttributes, op scim.PatchOpera
 func HandlePatchOPReplace(objectProps scim.ResourceAttributes, op scim.PatchOperation) (scim.ResourceAttributes, error) {
 	var err error
 
-	switch objectProps[op.Path.AttributePath.AttributeName].(type) {
-	case string:
-		objectProps[op.Path.AttributePath.AttributeName] = op.Value
-	case map[string]interface{}:
-		if op.Path.AttributePath.SubAttribute != nil {
-			objectProps[op.Path.AttributePath.AttributeName].(map[string]interface{})[*op.Path.AttributePath.SubAttribute] = op.Value
-		} else {
-			objectProps[op.Path.AttributePath.AttributeName] = op.Value
-		}
-	case []interface{}:
-		if op.Path.ValueExpression == nil {
-			objectProps[op.Path.AttributePath.AttributeName] = op.Value
-		} else {
-			ftr, err := filter.ParseAttrExp([]byte(op.Path.ValueExpression.(*filter.AttributeExpression).String()))
-			if err != nil {
-				return nil, err
+	if op.Path == nil {
+		switch value := op.Value.(type) {
+		case map[string]interface{}:
+			for k, v := range value {
+				objectProps[k] = v
 			}
+		}
+	} else {
 
-			index := -1
-			if ftr.Operator == filter.EQ {
-				for i, v := range objectProps[op.Path.AttributePath.AttributeName].([]interface{}) {
-					originalValue := v.(map[string]interface{})
-					if originalValue[ftr.AttributePath.AttributeName].(string) == ftr.CompareValue {
-						index = i
+		switch objectProps[op.Path.AttributePath.AttributeName].(type) {
+		case string:
+			objectProps[op.Path.AttributePath.AttributeName] = op.Value
+		case map[string]interface{}:
+			if op.Path.AttributePath.SubAttribute != nil {
+				objectProps[op.Path.AttributePath.AttributeName].(map[string]interface{})[*op.Path.AttributePath.SubAttribute] = op.Value
+			} else {
+				objectProps[op.Path.AttributePath.AttributeName] = op.Value
+			}
+		case []interface{}:
+			if op.Path.ValueExpression == nil {
+				objectProps[op.Path.AttributePath.AttributeName] = op.Value
+			} else {
+				ftr, err := filter.ParseAttrExp([]byte(op.Path.ValueExpression.(*filter.AttributeExpression).String()))
+				if err != nil {
+					return nil, err
+				}
+
+				index := -1
+				if ftr.Operator == filter.EQ {
+					for i, v := range objectProps[op.Path.AttributePath.AttributeName].([]interface{}) {
+						originalValue := v.(map[string]interface{})
+						if originalValue[ftr.AttributePath.AttributeName].(string) == ftr.CompareValue {
+							index = i
+						}
 					}
+					if index == -1 {
+						return nil, serrors.ScimErrorMutability
+					}
+					objectProps[op.Path.AttributePath.AttributeName].([]interface{})[index].(map[string]interface{})[*op.Path.SubAttribute] = op.Value
 				}
-				if index == -1 {
-					return nil, serrors.ScimErrorMutability
-				}
-				objectProps[op.Path.AttributePath.AttributeName].([]interface{})[index].(map[string]interface{})[*op.Path.SubAttribute] = op.Value
 			}
 		}
 	}
