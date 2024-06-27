@@ -33,7 +33,7 @@ func (s *Sync) UpdateUser(ctx context.Context, userID string, data *msg.Transfor
 		ObjectType:               s.cfg.UserObjectType,
 		ObjectId:                 userID,
 		Relation:                 s.cfg.IdentityRelation,
-		WithObjects:              true,
+		WithObjects:              false,
 		WithEmptySubjectRelation: true,
 	})
 	if err != nil && !errors.Is(cerr.UnwrapAsertoError(err), derr.ErrRelationNotFound) {
@@ -83,11 +83,11 @@ func (s *Sync) UpdateUser(ctx context.Context, userID string, data *msg.Transfor
 	}
 
 	if relations != nil {
-		for _, rel := range relations.Objects {
-			if !slices.Contains(addedIdentities, rel.Id) {
+		for _, rel := range relations.Results {
+			if !slices.Contains(addedIdentities, rel.ObjectId) {
 				_, err := s.dirClient.Writer.DeleteObject(ctx, &dsw.DeleteObjectRequest{
 					ObjectType:    s.cfg.IdentityObjectType,
-					ObjectId:      rel.Id,
+					ObjectId:      rel.ObjectId,
 					WithRelations: true,
 				})
 				if err != nil {
@@ -137,7 +137,7 @@ func (s *Sync) UpdateGroup(ctx context.Context, groupID string, data *msg.Transf
 		ObjectType:               s.cfg.GroupObjectType,
 		ObjectId:                 groupID,
 		Relation:                 s.cfg.GroupMemberRelation,
-		WithObjects:              true,
+		WithObjects:              false,
 		WithEmptySubjectRelation: true,
 	})
 	if err != nil && !errors.Is(cerr.UnwrapAsertoError(err), derr.ErrRelationNotFound) {
@@ -174,7 +174,7 @@ func (s *Sync) UpdateGroup(ctx context.Context, groupID string, data *msg.Transf
 
 	for _, relation := range data.Relations {
 		if relation.Relation == s.cfg.GroupMemberRelation {
-			addedMembers = append(addedMembers, relation.ObjectId)
+			addedMembers = append(addedMembers, relation.SubjectId)
 		}
 		_, err := s.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
 			Relation: relation,
@@ -185,14 +185,14 @@ func (s *Sync) UpdateGroup(ctx context.Context, groupID string, data *msg.Transf
 	}
 
 	if relations != nil {
-		for _, obj := range relations.Objects {
-			if !slices.Contains(addedMembers, obj.Id) {
+		for _, rel := range relations.Results {
+			if !slices.Contains(addedMembers, rel.SubjectId) {
 				_, err := s.dirClient.Writer.DeleteRelation(ctx, &dsw.DeleteRelationRequest{
-					ObjectType:  obj.Type,
-					ObjectId:    obj.Id,
+					ObjectType:  s.cfg.GroupObjectType,
+					ObjectId:    groupID,
 					Relation:    s.cfg.GroupMemberRelation,
-					SubjectId:   groupID,
-					SubjectType: s.cfg.GroupObjectType,
+					SubjectId:   rel.SubjectId,
+					SubjectType: rel.SubjectType,
 				})
 				if err != nil {
 					return result, err

@@ -32,5 +32,3 @@ Groups and group membership should be provisioned now.
 
 ## Troubleshooting
 Please note that any errors on provisioning groups will pause the group provisioning. If a group was provisioned, Okta does keep a state for that provisioned group, so removing it from Aserto before attempting to unlink it from the Okta app can cause issues. If this happens, the group needs to be unlinked and reassigned to the app.
-
-When provisioning groups and users, if a user is provisioned first and after that the group the user is part of, Okta might do 2 requests, when creating the group with the members already set, and then another PATCH request to add the user to the group members. This might cause an error, since the user was already added on the group create call. To not encounter this issue, make sure to provision the groups first.
