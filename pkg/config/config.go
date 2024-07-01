@@ -85,7 +85,7 @@ func NewConfig(configPath string, log *zerolog.Logger, certsGenerator *certs.Gen
 	v.AddConfigPath(".")
 	v.SetConfigFile(file)
 	v.SetEnvPrefix("ASERTO_SCIM")
-	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	// Set defaults.
 	v.SetDefault("server.listen_address", ":8080")
@@ -101,6 +101,11 @@ func NewConfig(configPath string, log *zerolog.Logger, certsGenerator *certs.Gen
 	v.SetDefault("scim.identity_relation", "identifier")
 	v.SetDefault("scim.group_object_type", "group")
 	v.SetDefault("scim.group_member_relation", "member")
+
+	// Allow setting via env vars.
+	v.SetDefault("directory.api_key", "")
+	v.SetDefault("server.auth.basic.password", "")
+	v.SetDefault("server.auth.bearer.token", "")
 
 	configExists, err := fileExists(file)
 	if err != nil {

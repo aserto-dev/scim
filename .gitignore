@@ -21,8 +21,9 @@
 .vscode/
 
 go.work.sum
-/dist
-/.ext
+dist/
+.ext/
+.dev/
 
 # Helm package
 scim-*.*.*.tgz
