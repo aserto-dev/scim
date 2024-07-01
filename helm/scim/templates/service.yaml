@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "scim.fullname" . }}
+  labels:
+    {{- include "scim.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - name: https
+      port: {{ include "scim.port" . }}
+      targetPort: https
+  selector:
+    {{- include "scim.selectorLabels" . | nindent 4 }}
