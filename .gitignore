@@ -23,3 +23,9 @@
 go.work.sum
 /dist
 /.ext
+
+# Helm package
+scim-*.*.*.tgz
+
+# Helm subpackages
+helm/scim/charts/*.tgz
