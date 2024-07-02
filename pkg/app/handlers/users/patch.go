@@ -95,7 +95,7 @@ func (u UsersResourceHandler) Patch(r *http.Request, id string, operations []sci
 	}
 
 	sync := directory.NewSync(scimConfig, dirClient)
-	meta, err := sync.UpdateUser(r.Context(), getObjResp.Result.Id, transformResult)
+	meta, err := sync.UpdateUser(r.Context(), getObjResp.Result.Id, transformResult, attr)
 	if err != nil {
 		return scim.Resource{}, err
 	}

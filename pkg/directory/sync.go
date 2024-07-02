@@ -14,6 +14,7 @@ import (
 	"github.com/aserto-dev/scim/pkg/config"
 	"github.com/elimity-com/scim"
 	serrors "github.com/elimity-com/scim/errors"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type Sync struct {
@@ -28,7 +29,7 @@ func NewSync(cfg *config.TransformConfig, dirClient *DirectoryClient) *Sync {
 	}
 }
 
-func (s *Sync) UpdateUser(ctx context.Context, userID string, data *msg.Transform) (scim.Meta, error) {
+func (s *Sync) UpdateUser(ctx context.Context, userID string, data *msg.Transform, userAttributes scim.ResourceAttributes) (scim.Meta, error) {
 	relations, err := s.dirClient.Reader.GetRelations(ctx, &dsr.GetRelationsRequest{
 		ObjectType:               s.cfg.UserObjectType,
 		ObjectId:                 userID,
@@ -44,6 +45,21 @@ func (s *Sync) UpdateUser(ctx context.Context, userID string, data *msg.Transfor
 
 	result := scim.Meta{}
 	for _, object := range data.Objects {
+		if object.Type == s.cfg.UserObjectType {
+			var userProperties map[string]interface{}
+			if object.Properties == nil {
+				userProperties = make(map[string]interface{})
+			} else {
+				userProperties = object.Properties.AsMap()
+			}
+			for key, value := range s.cfg.UserPropertiesMapping {
+				userProperties[key] = userAttributes[value]
+			}
+			object.Properties, err = structpb.NewStruct(userProperties)
+			if err != nil {
+				return result, err
+			}
+		}
 		resp, err := s.dirClient.Writer.SetObject(ctx, &dsw.SetObjectRequest{
 			Object: object,
 		})

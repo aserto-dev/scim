@@ -205,6 +205,7 @@ func TransformConfigFromMap(defaults config.TransformConfig, t map[string]interf
 		GroupMappings:         defaults.GroupMappings,
 		UserMappings:          defaults.UserMappings,
 		ManagerRelation:       defaults.ManagerRelation,
+		UserPropertiesMapping: defaults.UserPropertiesMapping,
 	}
 	jsonData, err := json.Marshal(t)
 	if err != nil {

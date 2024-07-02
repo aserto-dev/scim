@@ -37,21 +37,22 @@ type Config struct {
 }
 
 type TransformConfig struct {
-	CreateEmailIdentities bool            `json:"create_email_identities"`
-	CreateRoleGroups      bool            `json:"create_role_groups"`
-	Template              string          `json:"template"`
-	UserObjectType        string          `json:"user_object_type"`
-	GroupMemberRelation   string          `json:"group_member_relation"`
-	GroupObjectType       string          `json:"group_object_type"`
-	IdentityObjectType    string          `json:"identity_object_type"`
-	IdentityRelation      string          `json:"identity_relation"`
-	RoleObjectType        string          `json:"role_object_type"`
-	RoleRelation          string          `json:"role_relation"`
-	SourceUserType        string          `json:"source_user_type"`
-	SourceGroupType       string          `json:"source_group_type"`
-	GroupMappings         []ObjectMapping `json:"group_mappings"`
-	UserMappings          []ObjectMapping `json:"user_mappings"`
-	ManagerRelation       string          `json:"manager_relation"`
+	CreateEmailIdentities bool              `json:"create_email_identities"`
+	CreateRoleGroups      bool              `json:"create_role_groups"`
+	Template              string            `json:"template"`
+	UserObjectType        string            `json:"user_object_type"`
+	GroupMemberRelation   string            `json:"group_member_relation"`
+	GroupObjectType       string            `json:"group_object_type"`
+	IdentityObjectType    string            `json:"identity_object_type"`
+	IdentityRelation      string            `json:"identity_relation"`
+	RoleObjectType        string            `json:"role_object_type"`
+	RoleRelation          string            `json:"role_relation"`
+	SourceUserType        string            `json:"source_user_type"`
+	SourceGroupType       string            `json:"source_group_type"`
+	GroupMappings         []ObjectMapping   `json:"group_mappings"`
+	UserMappings          []ObjectMapping   `json:"user_mappings"`
+	ManagerRelation       string            `json:"manager_relation"`
+	UserPropertiesMapping map[string]string `json:"user_properties_mapping"`
 }
 
 func (t *TransformConfig) ToMap() (map[string]interface{}, error) {

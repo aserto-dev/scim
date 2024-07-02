@@ -65,7 +65,7 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 	}
 
 	sync := directory.NewSync(scimConfig, dirClient)
-	meta, err := sync.UpdateUser(r.Context(), sourceUserResp.Result.Id, transformResult)
+	meta, err := sync.UpdateUser(r.Context(), sourceUserResp.Result.Id, transformResult, attributes)
 	if err != nil {
 		return scim.Resource{}, err
 	}
