@@ -21,5 +21,12 @@
 .vscode/
 
 go.work.sum
-/dist
-/.ext
+dist/
+.ext/
+.dev/
+
+# Helm package
+scim-*.*.*.tgz
+
+# Helm subpackages
+helm/scim/charts/*.tgz
