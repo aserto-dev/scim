@@ -13,9 +13,7 @@ type DirectoryClient struct {
 	Writer dsw3.WriterClient
 }
 
-func connect(cfg *client.Config) (*client.Connection, error) {
-	ctx := context.Background()
-
+func connect(ctx context.Context, cfg *client.Config) (*client.Connection, error) {
 	opts := []client.ConnectionOption{
 		client.WithAddr(cfg.Address),
 		client.WithInsecure(cfg.Insecure),
@@ -35,8 +33,8 @@ func connect(cfg *client.Config) (*client.Connection, error) {
 	return conn, nil
 }
 
-func GetDirectoryClient(cfg *client.Config) (*DirectoryClient, error) {
-	dirConn, err := connect(cfg)
+func GetDirectoryClient(ctx context.Context, cfg *client.Config) (*DirectoryClient, error) {
+	dirConn, err := connect(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -44,4 +42,16 @@ func GetDirectoryClient(cfg *client.Config) (*DirectoryClient, error) {
 		Reader: dsr3.NewReaderClient(dirConn.Conn),
 		Writer: dsw3.NewWriterClient(dirConn.Conn),
 	}, nil
+}
+
+func (d *DirectoryClient) GetTransformConfigMap(ctx context.Context, cfgKey string) (map[string]interface{}, error) {
+	varsResp, err := d.Reader.GetObject(ctx, &dsr3.GetObjectRequest{
+		ObjectType: cfgKey,
+		ObjectId:   cfgKey,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return varsResp.Result.Properties.AsMap(), nil
 }
