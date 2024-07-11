@@ -17,11 +17,11 @@ func (u GroupResourceHandler) Delete(r *http.Request, id string) error {
 		return serrors.ScimErrorInternal
 	}
 
-	scimConfigMap, err := dirClient.GetTransformConfigMap(r.Context())
+	scimConfigMap, err := dirClient.GetTransformConfigMap(r.Context(), u.cfg.SCIM.SCIMConfigKey)
 	if err != nil {
 		return err
 	}
-	scimConfig, err := convert.TransformConfigFromMap(u.cfg.SCIM.TransformDefaults, scimConfigMap)
+	scimConfig, err := convert.TransformConfigFromMap(&u.cfg.SCIM.TransformDefaults, scimConfigMap)
 	if err != nil {
 		return err
 	}

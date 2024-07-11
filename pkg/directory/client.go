@@ -44,10 +44,10 @@ func GetDirectoryClient(ctx context.Context, cfg *client.Config) (*DirectoryClie
 	}, nil
 }
 
-func (d *DirectoryClient) GetTransformConfigMap(ctx context.Context) (map[string]interface{}, error) {
+func (d *DirectoryClient) GetTransformConfigMap(ctx context.Context, cfgKey string) (map[string]interface{}, error) {
 	varsResp, err := d.Reader.GetObject(ctx, &dsr3.GetObjectRequest{
-		ObjectType: "scim_config",
-		ObjectId:   "scim_config",
+		ObjectType: cfgKey,
+		ObjectId:   cfgKey,
 	})
 	if err != nil {
 		return nil, err

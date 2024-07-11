@@ -18,11 +18,11 @@ func (u GroupResourceHandler) Get(r *http.Request, id string) (scim.Resource, er
 		return scim.Resource{}, serrors.ScimErrorInternal
 	}
 
-	scimConfigMap, err := dirClient.GetTransformConfigMap(r.Context())
+	scimConfigMap, err := dirClient.GetTransformConfigMap(r.Context(), u.cfg.SCIM.SCIMConfigKey)
 	if err != nil {
 		return scim.Resource{}, err
 	}
-	scimConfig, err := convert.TransformConfigFromMap(u.cfg.SCIM.TransformDefaults, scimConfigMap)
+	scimConfig, err := convert.TransformConfigFromMap(&u.cfg.SCIM.TransformDefaults, scimConfigMap)
 	if err != nil {
 		return scim.Resource{}, err
 	}
@@ -59,11 +59,11 @@ func (u GroupResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 		return scim.Page{}, serrors.ScimErrorInternal
 	}
 
-	scimConfigMap, err := dirClient.GetTransformConfigMap(r.Context())
+	scimConfigMap, err := dirClient.GetTransformConfigMap(r.Context(), u.cfg.SCIM.SCIMConfigKey)
 	if err != nil {
 		return scim.Page{}, err
 	}
-	scimConfig, err := convert.TransformConfigFromMap(u.cfg.SCIM.TransformDefaults, scimConfigMap)
+	scimConfig, err := convert.TransformConfigFromMap(&u.cfg.SCIM.TransformDefaults, scimConfigMap)
 	if err != nil {
 		return scim.Page{}, err
 	}

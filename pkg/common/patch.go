@@ -111,20 +111,19 @@ func HandlePatchOPReplace(objectProps scim.ResourceAttributes, op scim.PatchOper
 	var err error
 
 	if op.Path == nil {
-		switch value := op.Value.(type) {
-		case map[string]interface{}:
+		value, ok := op.Value.(map[string]interface{})
+		if ok {
 			for k, v := range value {
 				objectProps[k] = v
 			}
 		}
 	} else {
-
-		switch objectProps[op.Path.AttributePath.AttributeName].(type) {
+		switch value := objectProps[op.Path.AttributePath.AttributeName].(type) {
 		case string:
 			objectProps[op.Path.AttributePath.AttributeName] = op.Value
 		case map[string]interface{}:
 			if op.Path.AttributePath.SubAttribute != nil {
-				objectProps[op.Path.AttributePath.AttributeName].(map[string]interface{})[*op.Path.AttributePath.SubAttribute] = op.Value
+				value[*op.Path.AttributePath.SubAttribute] = op.Value
 			} else {
 				objectProps[op.Path.AttributePath.AttributeName] = op.Value
 			}
@@ -139,7 +138,7 @@ func HandlePatchOPReplace(objectProps scim.ResourceAttributes, op scim.PatchOper
 
 				index := -1
 				if ftr.Operator == filter.EQ {
-					for i, v := range objectProps[op.Path.AttributePath.AttributeName].([]interface{}) {
+					for i, v := range value {
 						originalValue := v.(map[string]interface{})
 						if originalValue[ftr.AttributePath.AttributeName].(string) == ftr.CompareValue {
 							index = i
@@ -148,7 +147,7 @@ func HandlePatchOPReplace(objectProps scim.ResourceAttributes, op scim.PatchOper
 					if index == -1 {
 						return nil, serrors.ScimErrorMutability
 					}
-					objectProps[op.Path.AttributePath.AttributeName].([]interface{})[index].(map[string]interface{})[*op.Path.SubAttribute] = op.Value
+					value[index].(map[string]interface{})[*op.Path.SubAttribute] = op.Value
 				}
 			}
 		}

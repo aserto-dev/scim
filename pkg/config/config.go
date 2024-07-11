@@ -32,6 +32,7 @@ type Config struct {
 	} `json:"server"`
 
 	SCIM struct {
+		SCIMConfigKey     string          `json:"scim_config_key"`
 		TransformDefaults TransformConfig `json:"transform_defaults"`
 	} `json:"scim"`
 }
@@ -125,6 +126,8 @@ func NewConfig(configPath string, log *zerolog.Logger, certsGenerator *certs.Gen
 	v.SetDefault("server.certs.tls_key_path", filepath.Join(DefaultTLSGenDir, "grpc.key"))
 	v.SetDefault("server.certs.tls_cert_path", filepath.Join(DefaultTLSGenDir, "grpc.crt"))
 	v.SetDefault("server.certs.tls_ca_cert_path", filepath.Join(DefaultTLSGenDir, "grpc-ca.crt"))
+
+	v.SetDefault("scim.scim_config_key", "scim_config")
 
 	v.SetDefault("scim.transform_defaults.create_email_identities", true)
 	v.SetDefault("scim.transform_defaults.group_object_type", "group")

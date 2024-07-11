@@ -183,5 +183,5 @@ func NewLogger(l *zerolog.Logger) scimLogger {
 }
 
 func (l scimLogger) Error(args ...interface{}) {
-	l.log.Error().Any("args", args).Msg("error occured")
+	l.log.Error().Any("args", args).Msg("error occurred")
 }

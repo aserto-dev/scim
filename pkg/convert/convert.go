@@ -116,8 +116,6 @@ func (c *Converter) SCIMUserToObject(user *model.User) (*dsc.Object, error) {
 		displayName = userID
 	}
 
-	// props.Fields["enabled"] = structpb.NewBoolValue(user.Active)
-
 	object := &dsc.Object{
 		Type:        c.cfg.SourceUserType,
 		Properties:  props,
@@ -188,7 +186,7 @@ func ProtobufStructToMap(s *structpb.Struct) (map[string]interface{}, error) {
 	return m, nil
 }
 
-func TransformConfigFromMap(defaults config.TransformConfig, t map[string]interface{}) (*config.TransformConfig, error) {
+func TransformConfigFromMap(defaults *config.TransformConfig, t map[string]interface{}) (*config.TransformConfig, error) {
 	cfg := &config.TransformConfig{
 		CreateEmailIdentities: defaults.CreateEmailIdentities,
 		CreateRoleGroups:      defaults.CreateRoleGroups,

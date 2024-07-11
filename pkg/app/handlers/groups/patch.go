@@ -25,11 +25,11 @@ func (u GroupResourceHandler) Patch(r *http.Request, id string, operations []sci
 		return scim.Resource{}, serrors.ScimErrorInternal
 	}
 
-	scimConfigMap, err := dirClient.GetTransformConfigMap(r.Context())
+	scimConfigMap, err := dirClient.GetTransformConfigMap(r.Context(), u.cfg.SCIM.SCIMConfigKey)
 	if err != nil {
 		return scim.Resource{}, err
 	}
-	scimConfig, err := convert.TransformConfigFromMap(u.cfg.SCIM.TransformDefaults, scimConfigMap)
+	scimConfig, err := convert.TransformConfigFromMap(&u.cfg.SCIM.TransformDefaults, scimConfigMap)
 	if err != nil {
 		return scim.Resource{}, err
 	}
@@ -49,8 +49,6 @@ func (u GroupResourceHandler) Patch(r *http.Request, id string, operations []sci
 	converter := convert.NewConverter(scimConfig)
 	var attr scim.ResourceAttributes
 	oldAttr := converter.ObjectToResourceAttributes(getObjResp.Result)
-
-	// object := getObjResp.Result
 
 	for _, op := range operations {
 		switch op.Op {
@@ -75,14 +73,6 @@ func (u GroupResourceHandler) Patch(r *http.Request, id string, operations []sci
 	if err != nil {
 		return scim.Resource{}, err
 	}
-	// object.Etag = getObjResp.Result.Etag
-	// resp, err := dirClient.Writer.SetObject(r.Context(), &dsw.SetObjectRequest{
-	// 	Object: object,
-	// })
-	// if err != nil {
-	// 	u.logger.Err(err).Msg("error setting object")
-	// 	return scim.Resource{}, err
-	// }
 
 	transformResult, err := convert.TransformResource(attr, scimConfig, "group")
 	if err != nil {

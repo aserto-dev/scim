@@ -28,11 +28,11 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 		return scim.Resource{}, serrors.ScimErrorInternal
 	}
 
-	scimConfigMap, err := dirClient.GetTransformConfigMap(r.Context())
+	scimConfigMap, err := dirClient.GetTransformConfigMap(r.Context(), u.cfg.SCIM.SCIMConfigKey)
 	if err != nil {
 		return scim.Resource{}, err
 	}
-	scimConfig, err := convert.TransformConfigFromMap(u.cfg.SCIM.TransformDefaults, scimConfigMap)
+	scimConfig, err := convert.TransformConfigFromMap(&u.cfg.SCIM.TransformDefaults, scimConfigMap)
 	if err != nil {
 		return scim.Resource{}, err
 	}
