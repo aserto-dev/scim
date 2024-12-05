@@ -1,11 +1,12 @@
 package groups
 
 import (
-	"context"
+	"net/http"
 
-	dsc "github.com/aserto-dev/go-directory/aserto/directory/common/v3"
-	dsw "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
+	"github.com/aserto-dev/go-aserto/client"
+	"github.com/aserto-dev/scim/pkg/common"
 	"github.com/aserto-dev/scim/pkg/config"
+	"github.com/aserto-dev/scim/pkg/convert"
 	"github.com/aserto-dev/scim/pkg/directory"
 	"github.com/rs/zerolog"
 )
@@ -15,41 +16,33 @@ const (
 )
 
 type GroupResourceHandler struct {
-	dirClient *directory.DirectoryClient
 	cfg       *config.Config
 	logger    *zerolog.Logger
+	converter *convert.Converter
 }
 
-func NewGroupResourceHandler(cfg *config.Config, logger *zerolog.Logger) (*GroupResourceHandler, error) {
+func NewGroupResourceHandler(cfg *config.Config, logger *zerolog.Logger) *GroupResourceHandler {
 	groupLogger := logger.With().Str("component", "groups").Logger()
-	dirClient, err := directory.GetDirectoryClient(&cfg.Directory)
-	if err != nil {
-		return nil, err
-	}
+
 	return &GroupResourceHandler{
-		dirClient: dirClient,
-		cfg:       cfg,
-		logger:    &groupLogger,
-	}, nil
+		cfg:    cfg,
+		logger: &groupLogger,
+	}
 }
 
-func (u GroupResourceHandler) setGroupMappings(ctx context.Context, groupID string) error {
-	for _, groupMap := range u.cfg.SCIM.GroupMappings {
-		if groupMap.SubjectID == groupID {
-			_, err := u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
-				Relation: &dsc.Relation{
-					SubjectType:     u.cfg.SCIM.GroupObjectType,
-					SubjectId:       groupID,
-					Relation:        groupMap.Relation,
-					ObjectType:      groupMap.ObjectType,
-					ObjectId:        groupMap.ObjectID,
-					SubjectRelation: groupMap.SubjectRelation,
-				},
-			})
-			if err != nil {
-				return err
-			}
-		}
+func (u GroupResourceHandler) getDirectoryClient(r *http.Request) (*directory.DirectoryClient, error) {
+	tenantID := r.Context().Value(common.ContextKeyTenantID)
+	apiKey := r.Context().Value(common.ContextKeyAPIKey)
+	if tenantID == nil || apiKey == nil {
+		return directory.GetDirectoryClient(r.Context(), &u.cfg.Directory)
 	}
-	return nil
+
+	dirCfg := &client.Config{
+		Address:          u.cfg.Directory.Address,
+		TenantID:         tenantID.(string),
+		Insecure:         u.cfg.Directory.Insecure,
+		APIKey:           apiKey.(string),
+		TimeoutInSeconds: u.cfg.Directory.TimeoutInSeconds,
+	}
+	return directory.GetDirectoryClient(r.Context(), dirCfg)
 }

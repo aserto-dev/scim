@@ -2,35 +2,8 @@
 The Aserto SCIM service uses the SCIM 2.0 protocol to import data into the Aserto Directory. While not all features have been implemented yet, it supports the basic operations in order to manage users and groups using the SCIM core schemas.
 
 ### sample config.yaml
-```yaml
----
-logging:
-  prod: true
-  log_level: info
-server:
-  listen_address: ":8080"
-  auth:
-    basic:
-      enabled: true
-      username: "scim"
-      password: "scim"
-    bearer:
-      enabled: true
-      token: "scim"
-directory:
-  address: "directory.prod.aserto.com:8443"
-  tenant_id: "your_tenant_id"
-  api_key: "your_directory_rw_api_key"
-scim:
-  create_email_identities: true
-  create_role_groups: true
-  group_mappings:
-    - subject_id: app-admin
-      object_type: system
-      object_id: administrators
-      relation: member
-      subject_relation: member
-```
+
+See [Config docs](./docs/config.md)
 
 ### start service
 ```
