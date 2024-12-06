@@ -38,7 +38,7 @@ func (u GroupResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 	resp, err := u.dirClient.Reader.GetObjects(r.Context(), &dsr.GetObjectsRequest{
 		ObjectType: u.cfg.SCIM.GroupObjectType,
 		Page: &dsc.PaginationRequest{
-			Size: int32(params.Count),
+			Size: int32(params.Count), //nolint:gosec
 		},
 	})
 	if err != nil {

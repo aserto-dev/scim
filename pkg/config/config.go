@@ -1,13 +1,11 @@
 package config
 
 import (
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/aserto-dev/certs"
-	"github.com/aserto-dev/go-aserto/client"
+	client "github.com/aserto-dev/go-aserto"
 	"github.com/aserto-dev/logger"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
@@ -23,9 +21,9 @@ type Config struct {
 	Logging   logger.Config `json:"logging"`
 	Directory client.Config `json:"directory"`
 	Server    struct {
-		ListenAddress string               `json:"listen_address"`
-		Certs         certs.TLSCredsConfig `json:"certs"`
-		Auth          AuthConfig           `json:"auth"`
+		ListenAddress string           `json:"listen_address"`
+		Certs         client.TLSConfig `json:"certs"`
+		Auth          AuthConfig       `json:"auth"`
 	} `json:"server"`
 
 	SCIM struct {
@@ -61,10 +59,7 @@ type AuthConfig struct {
 	} `json:"bearer"`
 }
 
-func NewConfig(configPath string, log *zerolog.Logger, certsGenerator *certs.Generator) (*Config, error) { // nolint // function will contain repeating statements for defaults
-	configLogger := log.With().Str("component", "config").Logger()
-	log = &configLogger
-
+func NewConfig(configPath string) (*Config, error) { // nolint // function will contain repeating statements for defaults
 	file := "config.yaml"
 	v := viper.New()
 
@@ -137,24 +132,7 @@ func NewConfig(configPath string, log *zerolog.Logger, certsGenerator *certs.Gen
 		}
 	}
 
-	if certsGenerator != nil {
-		err = cfg.setupCerts(log, certsGenerator)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to setup certs")
-		}
-	}
-
 	return cfg, nil
-}
-
-func NewLoggerConfig(configPath string) (*logger.Config, error) {
-	discardLogger := zerolog.New(io.Discard)
-	cfg, err := NewConfig(configPath, &discardLogger, nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create new config")
-	}
-
-	return &cfg.Logging, nil
 }
 
 func fileExists(path string) (bool, error) {
@@ -165,45 +143,4 @@ func fileExists(path string) (bool, error) {
 	} else {
 		return false, errors.Wrapf(err, "failed to stat file '%s'", path)
 	}
-}
-
-func (c *Config) setupCerts(log *zerolog.Logger, certsGenerator *certs.Generator) error {
-	existingFiles := []string{}
-	for _, file := range []string{
-		c.Server.Certs.TLSCACertPath,
-		c.Server.Certs.TLSCertPath,
-		c.Server.Certs.TLSKeyPath,
-	} {
-		exists, err := fileExists(file)
-		if err != nil {
-			return errors.Wrapf(err, "failed to determine if file '%s' exists", file)
-		}
-
-		if !exists {
-			continue
-		}
-
-		existingFiles = append(existingFiles, file)
-	}
-
-	if len(existingFiles) == 0 {
-		err := certsGenerator.MakeDevCert(&certs.CertGenConfig{
-			CommonName:       "aserto-scim",
-			CertKeyPath:      c.Server.Certs.TLSKeyPath,
-			CertPath:         c.Server.Certs.TLSCertPath,
-			CACertPath:       c.Server.Certs.TLSCACertPath,
-			DefaultTLSGenDir: DefaultTLSGenDir,
-		})
-		if err != nil {
-			return errors.Wrap(err, "failed to generate gateway certs")
-		}
-	} else {
-		msg := zerolog.Arr()
-		for _, f := range existingFiles {
-			msg.Str(f)
-		}
-		log.Info().Array("existing-files", msg).Msg("some cert files already exist, skipping generation")
-	}
-
-	return nil
 }
