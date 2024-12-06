@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aserto-dev/certs"
 	"github.com/aserto-dev/logger"
 	"github.com/aserto-dev/scim/pkg/app/handlers/groups"
 	"github.com/aserto-dev/scim/pkg/app/handlers/users"
@@ -18,17 +17,12 @@ import (
 )
 
 func Run(cfgPath string, logWriter logger.Writer, errWriter logger.ErrWriter) error {
-	loggerConfig, err := config.NewLoggerConfig(cfgPath)
+	cfg, err := config.NewConfig(cfgPath)
 	if err != nil {
 		return err
 	}
-	scimLogger, err := logger.NewLogger(logWriter, errWriter, loggerConfig)
-	if err != nil {
-		return err
-	}
-	certGenerator := certs.NewGenerator(scimLogger)
 
-	cfg, err := config.NewConfig(cfgPath, scimLogger, certGenerator)
+	scimLogger, err := logger.NewLogger(logWriter, errWriter, &cfg.Logging)
 	if err != nil {
 		return err
 	}
@@ -91,15 +85,25 @@ func Run(cfgPath string, logWriter logger.Writer, errWriter logger.ErrWriter) er
 	app := new(application)
 	app.cfg = &cfg.Server.Auth
 
+	tlsServerConfig, err := cfg.Server.Certs.ServerConfig()
+	if err != nil {
+		return err
+	}
+
 	srv := &http.Server{
 		Addr:         cfg.Server.ListenAddress,
 		Handler:      app.auth(server.ServeHTTP),
+		TLSConfig:    tlsServerConfig,
 		IdleTimeout:  time.Minute,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
 
-	return srv.ListenAndServeTLS(cfg.Server.Certs.TLSCertPath, cfg.Server.Certs.TLSKeyPath)
+	if cfg.Server.Certs.HasCert() {
+		return srv.ListenAndServeTLS("", "")
+	}
+
+	return srv.ListenAndServe()
 }
 
 type application struct {
