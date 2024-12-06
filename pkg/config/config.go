@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/aserto-dev/certs"
-	"github.com/aserto-dev/go-aserto/client"
+	client "github.com/aserto-dev/go-aserto"
 	"github.com/aserto-dev/logger"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"

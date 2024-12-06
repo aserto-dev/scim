@@ -4,6 +4,7 @@ import (
 	"context"
 
 	cerr "github.com/aserto-dev/errors"
+	"github.com/aserto-dev/go-aserto/ds/v3"
 	dsc "github.com/aserto-dev/go-directory/aserto/directory/common/v3"
 	dsr "github.com/aserto-dev/go-directory/aserto/directory/reader/v3"
 	dsw "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
@@ -24,7 +25,7 @@ const (
 )
 
 type UsersResourceHandler struct {
-	dirClient *directory.DirectoryClient
+	dirClient *ds.Client
 	cfg       *config.Config
 	logger    *zerolog.Logger
 }

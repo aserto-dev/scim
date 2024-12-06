@@ -3,6 +3,7 @@ package groups
 import (
 	"context"
 
+	"github.com/aserto-dev/go-aserto/ds/v3"
 	dsc "github.com/aserto-dev/go-directory/aserto/directory/common/v3"
 	dsw "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
 	"github.com/aserto-dev/scim/pkg/config"
@@ -15,17 +16,19 @@ const (
 )
 
 type GroupResourceHandler struct {
-	dirClient *directory.DirectoryClient
+	dirClient *ds.Client
 	cfg       *config.Config
 	logger    *zerolog.Logger
 }
 
 func NewGroupResourceHandler(cfg *config.Config, logger *zerolog.Logger) (*GroupResourceHandler, error) {
-	groupLogger := logger.With().Str("component", "groups").Logger()
 	dirClient, err := directory.GetDirectoryClient(&cfg.Directory)
 	if err != nil {
 		return nil, err
 	}
+
+	groupLogger := logger.With().Str("component", "groups").Logger()
+
 	return &GroupResourceHandler{
 		dirClient: dirClient,
 		cfg:       cfg,
