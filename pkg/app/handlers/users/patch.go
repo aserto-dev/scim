@@ -78,73 +78,85 @@ func (u UsersResourceHandler) Patch(r *http.Request, id string, operations []sci
 
 func (u UsersResourceHandler) handlePatchOPAdd(ctx context.Context, object *dsc.Object, op scim.PatchOperation) error {
 	var err error
-	objectProps := object.Properties.AsMap()
 	if op.Path == nil || op.Path.ValueExpression == nil {
-		// simple add property
-		switch v := op.Value.(type) {
-		case string:
-			if objectProps[op.Path.AttributePath.AttributeName] != nil {
-				return serrors.ScimErrorUniqueness
-			}
-			objectProps[op.Path.AttributePath.AttributeName] = op.Value
-		case map[string]interface{}:
-			value := v
-			for k, v := range value {
-				if objectProps[k] != nil {
-					return serrors.ScimErrorUniqueness
-				}
-				objectProps[k] = v
-			}
-		}
-	} else {
-		fltr, err := filter.ParseAttrExp([]byte(op.Path.ValueExpression.(*filter.AttributeExpression).String()))
-		if err != nil {
-			return err
-		}
+		return u.addProperty(object, op)
+	}
 
-		switch op.Path.AttributePath.AttributeName {
-		case Emails, Groups:
-			properties := make(map[string]interface{})
-			if op.Path.ValueExpression != nil {
-				if objectProps[op.Path.AttributePath.AttributeName] != nil {
-					for _, v := range objectProps[op.Path.AttributePath.AttributeName].([]interface{}) {
-						originalValue := v.(map[string]interface{})
-						if fltr.Operator == filter.EQ {
-							if originalValue[fltr.AttributePath.AttributeName].(string) == fltr.CompareValue {
-								if originalValue[*op.Path.SubAttribute] != nil {
-									return serrors.ScimErrorUniqueness
-								}
-								properties = originalValue
+	objectProps := object.Properties.AsMap()
+	fltr, err := filter.ParseAttrExp([]byte(op.Path.ValueExpression.(*filter.AttributeExpression).String()))
+	if err != nil {
+		return err
+	}
+
+	switch op.Path.AttributePath.AttributeName {
+	case Emails, Groups:
+		properties := make(map[string]interface{})
+		if op.Path.ValueExpression != nil {
+			if objectProps[op.Path.AttributePath.AttributeName] != nil {
+				for _, v := range objectProps[op.Path.AttributePath.AttributeName].([]interface{}) {
+					originalValue := v.(map[string]interface{})
+					if fltr.Operator == filter.EQ {
+						if originalValue[fltr.AttributePath.AttributeName].(string) == fltr.CompareValue {
+							if originalValue[*op.Path.SubAttribute] != nil {
+								return serrors.ScimErrorUniqueness
 							}
+							properties = originalValue
 						}
 					}
-				} else {
-					objectProps[op.Path.AttributePath.AttributeName] = make([]interface{}, 0)
-				}
-				if len(properties) == 0 {
-					properties[fltr.AttributePath.AttributeName] = fltr.CompareValue
-					properties[*op.Path.SubAttribute] = op.Value
-					objectProps[op.Path.AttributePath.AttributeName] = append(objectProps[op.Path.AttributePath.AttributeName].([]interface{}), properties)
 				}
 			} else {
-				properties[*op.Path.SubAttribute] = op.Value
+				objectProps[op.Path.AttributePath.AttributeName] = make([]interface{}, 0)
 			}
+			if len(properties) == 0 {
+				properties[fltr.AttributePath.AttributeName] = fltr.CompareValue
+				properties[*op.Path.SubAttribute] = op.Value
+				objectProps[op.Path.AttributePath.AttributeName] = append(objectProps[op.Path.AttributePath.AttributeName].([]interface{}), properties)
+			}
+		} else {
+			properties[*op.Path.SubAttribute] = op.Value
+		}
 
-			if op.Path.AttributePath.AttributeName == Emails && u.cfg.SCIM.CreateEmailIdentities {
-				err = u.setIdentity(ctx, object.Id, op.Value.(string), map[string]interface{}{IdentityKindKey: "IDENTITY_KIND_EMAIL"})
-				if err != nil {
-					return err
-				}
-			} else if op.Path.AttributePath.AttributeName == Groups {
-				err = u.addUserToGroup(ctx, object.Id, op.Value.(string))
-				if err != nil {
-					return err
-				}
+		if op.Path.AttributePath.AttributeName == Emails && u.cfg.SCIM.CreateEmailIdentities {
+			err = u.setIdentity(ctx, object.Id, op.Value.(string), map[string]interface{}{IdentityKindKey: "IDENTITY_KIND_EMAIL"})
+			if err != nil {
+				return err
+			}
+		} else if op.Path.AttributePath.AttributeName == Groups {
+			err = u.addUserToGroup(ctx, object.Id, op.Value.(string))
+			if err != nil {
+				return err
 			}
 		}
 	}
 
 	object.Properties, err = structpb.NewStruct(objectProps)
+	return err
+}
+
+func (u UsersResourceHandler) addProperty(object *dsc.Object, op scim.PatchOperation) error {
+	// simple add property
+	objectProps := object.Properties.AsMap()
+	switch v := op.Value.(type) {
+	case string:
+		if objectProps[op.Path.AttributePath.AttributeName] != nil {
+			return serrors.ScimErrorUniqueness
+		}
+		objectProps[op.Path.AttributePath.AttributeName] = op.Value
+	case map[string]interface{}:
+		value := v
+		for k, v := range value {
+			if objectProps[k] != nil {
+				return serrors.ScimErrorUniqueness
+			}
+			objectProps[k] = v
+		}
+	}
+
+	props, err := structpb.NewStruct(objectProps)
+	if err == nil {
+		object.Properties = props
+	}
+
 	return err
 }
 

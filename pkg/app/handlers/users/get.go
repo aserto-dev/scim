@@ -98,7 +98,7 @@ func (u UsersResourceHandler) getUsers(ctx context.Context, count int, pageToken
 	return u.dirClient.Reader.GetObjects(ctx, &dsr.GetObjectsRequest{
 		ObjectType: u.cfg.SCIM.UserObjectType,
 		Page: &dsc.PaginationRequest{
-			Size:  int32(count),
+			Size:  int32(count), //nolint:gosec
 			Token: pageToken,
 		},
 	})
