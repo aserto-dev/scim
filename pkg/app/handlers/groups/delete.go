@@ -3,24 +3,31 @@ package groups
 import (
 	"net/http"
 
-	cerr "github.com/aserto-dev/errors"
-	dsw "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
-	"github.com/aserto-dev/go-directory/pkg/derr"
+	"github.com/aserto-dev/scim/pkg/convert"
+	"github.com/aserto-dev/scim/pkg/directory"
 	serrors "github.com/elimity-com/scim/errors"
-	"github.com/pkg/errors"
 )
 
 func (u GroupResourceHandler) Delete(r *http.Request, id string) error {
-	_, err := u.dirClient.Writer.DeleteObject(r.Context(), &dsw.DeleteObjectRequest{
-		ObjectType:    u.cfg.SCIM.GroupObjectType,
-		ObjectId:      id,
-		WithRelations: true,
-	})
+	u.logger.Trace().Str("id", id).Msg("deleting group")
+
+	dirClient, err := u.getDirectoryClient(r)
 	if err != nil {
-		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
-			return serrors.ScimErrorResourceNotFound(id)
-		}
+		u.logger.Error().Err(err).Msg("failed to get directory client")
+		return serrors.ScimErrorInternal
 	}
+
+	scimConfigMap, err := directory.GetTransformConfigMap(r.Context(), dirClient, u.cfg.SCIM.SCIMConfigKey)
+	if err != nil {
+		return err
+	}
+	scimConfig, err := convert.TransformConfigFromMap(&u.cfg.SCIM.TransformDefaults, scimConfigMap)
+	if err != nil {
+		return err
+	}
+
+	sync := directory.NewSync(scimConfig, dirClient)
+	err = sync.DeleteGroup(r.Context(), id)
 
 	return err
 }
