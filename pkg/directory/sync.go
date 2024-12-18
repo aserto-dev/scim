@@ -7,6 +7,7 @@ import (
 
 	"github.com/aserto-dev/ds-load/sdk/common/msg"
 	cerr "github.com/aserto-dev/errors"
+	"github.com/aserto-dev/go-aserto/ds/v3"
 	dsc "github.com/aserto-dev/go-directory/aserto/directory/common/v3"
 	dsr "github.com/aserto-dev/go-directory/aserto/directory/reader/v3"
 	dsw "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
@@ -19,10 +20,10 @@ import (
 
 type Sync struct {
 	cfg       *config.TransformConfig
-	dirClient *DirectoryClient
+	dirClient *ds.Client
 }
 
-func NewSync(cfg *config.TransformConfig, dirClient *DirectoryClient) *Sync {
+func NewSync(cfg *config.TransformConfig, dirClient *ds.Client) *Sync {
 	return &Sync{
 		cfg:       cfg,
 		dirClient: dirClient,

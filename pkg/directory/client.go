@@ -3,49 +3,22 @@ package directory
 import (
 	"context"
 
-	"github.com/aserto-dev/go-aserto/client"
-	dsr3 "github.com/aserto-dev/go-directory/aserto/directory/reader/v3"
-	dsw3 "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
+	client "github.com/aserto-dev/go-aserto"
+	"github.com/aserto-dev/go-aserto/ds/v3"
+	dsr "github.com/aserto-dev/go-directory/aserto/directory/reader/v3"
 )
 
-type DirectoryClient struct {
-	Reader dsr3.ReaderClient
-	Writer dsw3.WriterClient
-}
-
-func connect(ctx context.Context, cfg *client.Config) (*client.Connection, error) {
-	opts := []client.ConnectionOption{
-		client.WithAddr(cfg.Address),
-		client.WithInsecure(cfg.Insecure),
-	}
-
-	if cfg.APIKey != "" {
-		opts = append(opts, client.WithAPIKeyAuth(cfg.APIKey))
-	}
-	if cfg.TenantID != "" {
-		opts = append(opts, client.WithTenantID(cfg.TenantID))
-	}
-
-	conn, err := client.NewConnection(ctx, opts...)
+func GetTenantDirectoryClient(cfg *client.Config) (*ds.Client, error) {
+	conn, err := cfg.Connect()
 	if err != nil {
 		return nil, err
 	}
-	return conn, nil
+
+	return ds.FromConnection(conn)
 }
 
-func GetDirectoryClient(ctx context.Context, cfg *client.Config) (*DirectoryClient, error) {
-	dirConn, err := connect(ctx, cfg)
-	if err != nil {
-		return nil, err
-	}
-	return &DirectoryClient{
-		Reader: dsr3.NewReaderClient(dirConn.Conn),
-		Writer: dsw3.NewWriterClient(dirConn.Conn),
-	}, nil
-}
-
-func (d *DirectoryClient) GetTransformConfigMap(ctx context.Context, cfgKey string) (map[string]interface{}, error) {
-	varsResp, err := d.Reader.GetObject(ctx, &dsr3.GetObjectRequest{
+func GetTransformConfigMap(ctx context.Context, rootClient *ds.Client, cfgKey string) (map[string]interface{}, error) {
+	varsResp, err := rootClient.Reader.GetObject(ctx, &dsr.GetObjectRequest{
 		ObjectType: cfgKey,
 		ObjectId:   cfgKey,
 	})

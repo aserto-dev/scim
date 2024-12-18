@@ -6,6 +6,7 @@ import (
 	dsc "github.com/aserto-dev/go-directory/aserto/directory/common/v3"
 	dsr "github.com/aserto-dev/go-directory/aserto/directory/reader/v3"
 	"github.com/aserto-dev/scim/pkg/convert"
+	"github.com/aserto-dev/scim/pkg/directory"
 	"github.com/elimity-com/scim"
 	serrors "github.com/elimity-com/scim/errors"
 )
@@ -18,7 +19,7 @@ func (u GroupResourceHandler) Get(r *http.Request, id string) (scim.Resource, er
 		return scim.Resource{}, serrors.ScimErrorInternal
 	}
 
-	scimConfigMap, err := dirClient.GetTransformConfigMap(r.Context(), u.cfg.SCIM.SCIMConfigKey)
+	scimConfigMap, err := directory.GetTransformConfigMap(r.Context(), dirClient, u.cfg.SCIM.SCIMConfigKey)
 	if err != nil {
 		return scim.Resource{}, err
 	}
@@ -59,7 +60,7 @@ func (u GroupResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 		return scim.Page{}, serrors.ScimErrorInternal
 	}
 
-	scimConfigMap, err := dirClient.GetTransformConfigMap(r.Context(), u.cfg.SCIM.SCIMConfigKey)
+	scimConfigMap, err := directory.GetTransformConfigMap(r.Context(), dirClient, u.cfg.SCIM.SCIMConfigKey)
 	if err != nil {
 		return scim.Page{}, err
 	}
@@ -71,7 +72,7 @@ func (u GroupResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 	resp, err := dirClient.Reader.GetObjects(r.Context(), &dsr.GetObjectsRequest{
 		ObjectType: scimConfig.SourceGroupType,
 		Page: &dsc.PaginationRequest{
-			Size: int32(params.Count),
+			Size: int32(params.Count), //nolint:gosec
 		},
 	})
 	if err != nil {

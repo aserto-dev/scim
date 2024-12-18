@@ -17,7 +17,7 @@ func (u GroupResourceHandler) Delete(r *http.Request, id string) error {
 		return serrors.ScimErrorInternal
 	}
 
-	scimConfigMap, err := dirClient.GetTransformConfigMap(r.Context(), u.cfg.SCIM.SCIMConfigKey)
+	scimConfigMap, err := directory.GetTransformConfigMap(r.Context(), dirClient, u.cfg.SCIM.SCIMConfigKey)
 	if err != nil {
 		return err
 	}

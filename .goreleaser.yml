@@ -1,3 +1,5 @@
+---
+version: 2
 project_name: scim
 
 env:
@@ -34,7 +36,7 @@ archives:
   # https://goreleaser.com/customization/archive/
   - format: zip
     builds:
-    - aserto-scim
+      - aserto-scim
     files:
       - LICENSE
       - README.md
@@ -47,7 +49,7 @@ checksum:
 
 snapshot:
   # https://goreleaser.com/customization/snapshots/
-  name_template: "{{ .Tag }}"
+  version_template: "{{ incpatch .Version }}-{{ .ShortCommit }}{{ if .IsGitDirty }}-dirty{{ end }}"
 
 source:
   # https://goreleaser.com/customization/source/
@@ -79,7 +81,7 @@ dockers:
     image_templates:
       - &amd64-image "{{ .Env.REGISTRY }}/{{ .Env.ORG }}/{{ .Env.REPO }}:{{ .Version }}-amd64"
     skip_push: false
-    dockerfile: Dockerfile.goreleaser
+    dockerfile: Dockerfile
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--label=org.opencontainers.image.created={{.Date}}"
@@ -94,7 +96,7 @@ dockers:
     image_templates:
       - &arm64-image "{{ .Env.REGISTRY }}/{{ .Env.ORG }}/{{ .Env.REPO }}:{{ .Version }}-arm64"
     skip_push: false
-    dockerfile: Dockerfile.goreleaser
+    dockerfile: Dockerfile
     build_flag_templates:
       - "--platform=linux/arm64/v8"
       - "--label=org.opencontainers.image.created={{.Date}}"

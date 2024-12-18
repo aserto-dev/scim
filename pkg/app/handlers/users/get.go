@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	cerr "github.com/aserto-dev/errors"
+	"github.com/aserto-dev/go-aserto/ds/v3"
 	dsc "github.com/aserto-dev/go-directory/aserto/directory/common/v3"
 	dsr "github.com/aserto-dev/go-directory/aserto/directory/reader/v3"
 	"github.com/aserto-dev/go-directory/pkg/derr"
@@ -25,7 +26,7 @@ func (u UsersResourceHandler) Get(r *http.Request, id string) (scim.Resource, er
 		return scim.Resource{}, serrors.ScimErrorInternal
 	}
 
-	scimConfigMap, err := dirClient.GetTransformConfigMap(r.Context(), u.cfg.SCIM.SCIMConfigKey)
+	scimConfigMap, err := directory.GetTransformConfigMap(r.Context(), dirClient, u.cfg.SCIM.SCIMConfigKey)
 	if err != nil {
 		return scim.Resource{}, err
 	}
@@ -79,7 +80,7 @@ func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 		return scim.Page{}, serrors.ScimErrorInternal
 	}
 
-	scimConfigMap, err := dirClient.GetTransformConfigMap(r.Context(), u.cfg.SCIM.SCIMConfigKey)
+	scimConfigMap, err := directory.GetTransformConfigMap(r.Context(), dirClient, u.cfg.SCIM.SCIMConfigKey)
 	if err != nil {
 		return scim.Page{}, err
 	}
@@ -131,11 +132,11 @@ func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 	}, nil
 }
 
-func (u UsersResourceHandler) getUsers(ctx context.Context, dirClient *directory.DirectoryClient, scimConfig *config.TransformConfig, count int, pageToken string) (*dsr.GetObjectsResponse, error) {
+func (u UsersResourceHandler) getUsers(ctx context.Context, dirClient *ds.Client, scimConfig *config.TransformConfig, count int, pageToken string) (*dsr.GetObjectsResponse, error) {
 	return dirClient.Reader.GetObjects(ctx, &dsr.GetObjectsRequest{
 		ObjectType: scimConfig.UserObjectType,
 		Page: &dsc.PaginationRequest{
-			Size:  int32(count),
+			Size:  int32(count), //nolint:gosec
 			Token: pageToken,
 		},
 	})

@@ -8,6 +8,7 @@ import (
 	dsw "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
 	"github.com/aserto-dev/go-directory/pkg/derr"
 	"github.com/aserto-dev/scim/pkg/convert"
+	"github.com/aserto-dev/scim/pkg/directory"
 	serrors "github.com/elimity-com/scim/errors"
 	"github.com/pkg/errors"
 )
@@ -21,7 +22,7 @@ func (u UsersResourceHandler) Delete(r *http.Request, id string) error {
 		return serrors.ScimErrorInternal
 	}
 
-	scimConfigMap, err := dirClient.GetTransformConfigMap(r.Context(), u.cfg.SCIM.SCIMConfigKey)
+	scimConfigMap, err := directory.GetTransformConfigMap(r.Context(), dirClient, u.cfg.SCIM.SCIMConfigKey)
 	if err != nil {
 		return err
 	}
