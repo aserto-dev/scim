@@ -11,5 +11,5 @@ func GetDirectoryClient(cfg *client.Config) (*ds.Client, error) {
 		return nil, err
 	}
 
-	return ds.FromConnection(conn)
+	return ds.FromConnection(conn), nil
 }
