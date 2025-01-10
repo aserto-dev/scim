@@ -2,7 +2,6 @@ package config
 
 import (
 	"os"
-	"path/filepath"
 	"strings"
 
 	client "github.com/aserto-dev/go-aserto"
@@ -86,9 +85,6 @@ func NewConfig(configPath string) (*Config, error) { // nolint // function will 
 	v.SetDefault("server.listen_address", ":8080")
 	v.SetDefault("server.auth.basic.enabled", "false")
 	v.SetDefault("server.auth.bearer.enabled", "false")
-	v.SetDefault("server.certs.tls_key_path", filepath.Join(DefaultTLSGenDir, "grpc.key"))
-	v.SetDefault("server.certs.tls_cert_path", filepath.Join(DefaultTLSGenDir, "grpc.crt"))
-	v.SetDefault("server.certs.tls_ca_cert_path", filepath.Join(DefaultTLSGenDir, "grpc-ca.crt"))
 
 	v.SetDefault("scim.create_email_identities", true)
 	v.SetDefault("scim.user_object_type", "user")
