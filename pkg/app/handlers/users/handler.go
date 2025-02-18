@@ -155,14 +155,26 @@ func (u UsersResourceHandler) setIdentity(ctx context.Context, userID, identity 
 		return err
 	}
 
-	_, err = u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
-		Relation: &dsc.Relation{
+	var rel *dsc.Relation
+	if u.cfg.SCIM.InvertIdentityRelation {
+		rel = &dsc.Relation{
+			SubjectId:   identity,
+			SubjectType: u.cfg.SCIM.IdentityObjectType,
+			Relation:    u.cfg.SCIM.IdentityRelation,
+			ObjectType:  u.cfg.SCIM.UserObjectType,
+			ObjectId:    userID,
+		}
+	} else {
+		rel = &dsc.Relation{
 			SubjectId:   userID,
 			SubjectType: u.cfg.SCIM.UserObjectType,
 			Relation:    u.cfg.SCIM.IdentityRelation,
 			ObjectType:  u.cfg.SCIM.IdentityObjectType,
 			ObjectId:    identity,
-		}})
+		}
+	}
+
+	_, err = u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{Relation: rel})
 	return err
 }
 

@@ -26,15 +26,16 @@ type Config struct {
 	} `json:"server"`
 
 	SCIM struct {
-		CreateEmailIdentities bool            `json:"create_email_identities"`
-		CreateRoleGroups      bool            `json:"create_role_groups"`
-		GroupMappings         []ObjectMapping `json:"group_mappings"`
-		UserMappings          []ObjectMapping `json:"user_mappings"`
-		UserObjectType        string          `json:"user_object_type"`
-		GroupMemberRelation   string          `json:"group_member_relation"`
-		GroupObjectType       string          `json:"group_object_type"`
-		IdentityObjectType    string          `json:"identity_object_type"`
-		IdentityRelation      string          `json:"identity_relation"`
+		CreateEmailIdentities  bool            `json:"create_email_identities"`
+		CreateRoleGroups       bool            `json:"create_role_groups"`
+		GroupMappings          []ObjectMapping `json:"group_mappings"`
+		UserMappings           []ObjectMapping `json:"user_mappings"`
+		UserObjectType         string          `json:"user_object_type"`
+		GroupMemberRelation    string          `json:"group_member_relation"`
+		GroupObjectType        string          `json:"group_object_type"`
+		IdentityObjectType     string          `json:"identity_object_type"`
+		IdentityRelation       string          `json:"identity_relation"`
+		InvertIdentityRelation bool            `json:"invert_identity_relation"`
 	} `json:"scim"`
 }
 
@@ -92,6 +93,7 @@ func NewConfig(configPath string) (*Config, error) { // nolint // function will 
 	v.SetDefault("scim.identity_relation", "identifier")
 	v.SetDefault("scim.group_object_type", "group")
 	v.SetDefault("scim.group_member_relation", "member")
+	v.SetDefault("scim.invert_identity_relation", false)
 
 	// Allow setting via env vars.
 	v.SetDefault("directory.api_key", "")

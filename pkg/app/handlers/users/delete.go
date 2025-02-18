@@ -4,11 +4,13 @@ import (
 	"net/http"
 
 	cerr "github.com/aserto-dev/errors"
+	dsc "github.com/aserto-dev/go-directory/aserto/directory/common/v3"
 	dsr "github.com/aserto-dev/go-directory/aserto/directory/reader/v3"
 	dsw "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
 	"github.com/aserto-dev/go-directory/pkg/derr"
 	serrors "github.com/elimity-com/scim/errors"
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 )
 
 func (u UsersResourceHandler) Delete(r *http.Request, id string) error {
@@ -24,16 +26,34 @@ func (u UsersResourceHandler) Delete(r *http.Request, id string) error {
 		return err
 	}
 
-	for _, v := range relations.Results {
-		if v.Relation == u.cfg.SCIM.IdentityRelation {
-			_, err = u.dirClient.Writer.DeleteObject(r.Context(), &dsw.DeleteObjectRequest{
-				ObjectId:      v.ObjectId,
-				ObjectType:    v.ObjectType,
-				WithRelations: true,
-			})
-			if err != nil {
-				return err
+	var identities []*dsc.Relation
+	if u.cfg.SCIM.InvertIdentityRelation {
+		resp, err := u.dirClient.Reader.GetRelations(r.Context(), &dsr.GetRelationsRequest{
+			SubjectType: u.cfg.SCIM.IdentityObjectType,
+			Relation:    u.cfg.SCIM.IdentityRelation,
+			ObjectId:    id,
+		})
+		if err != nil {
+			if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
+				return serrors.ScimErrorResourceNotFound(id)
 			}
+			return err
+		}
+		identities = resp.Results
+	} else {
+		identities = lo.Filter(relations.Results, func(rel *dsc.Relation, i int) bool {
+			return rel.Relation == u.cfg.SCIM.IdentityRelation
+		})
+	}
+
+	for _, v := range identities {
+		_, err = u.dirClient.Writer.DeleteObject(r.Context(), &dsw.DeleteObjectRequest{
+			ObjectId:      v.ObjectId,
+			ObjectType:    v.ObjectType,
+			WithRelations: true,
+		})
+		if err != nil {
+			return err
 		}
 	}
 
