@@ -14,7 +14,13 @@ import (
 )
 
 func (u UsersResourceHandler) Replace(r *http.Request, id string, attributes scim.ResourceAttributes) (scim.Resource, error) {
-	u.logger.Trace().Str("user_id", id).Any("attributes", attributes).Msg("replacing user")
+	if id == "" {
+		return scim.Resource{}, serrors.ScimErrorBadRequest("missing id")
+	}
+
+	logger := u.logger.With().Str("method", "Replace").Str("id", id).Logger()
+	logger.Info().Msg("replace user")
+	logger.Trace().Str("user_id", id).Any("attributes", attributes).Msg("replacing user")
 	getObjResp, err := u.dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
 		ObjectType:    u.cfg.SCIM.UserObjectType,
 		ObjectId:      id,

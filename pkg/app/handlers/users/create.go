@@ -13,19 +13,26 @@ import (
 )
 
 func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAttributes) (scim.Resource, error) {
-	u.logger.Trace().Any("attributes", attributes).Msg("creating user")
+	if attributes["id"] == nil || attributes["id"].(string) == "" {
+		return scim.Resource{}, serrors.ScimErrorBadRequest("missing id")
+	}
+
+	logger := u.logger.With().Str("method", "Create").Str("id", attributes["id"].(string)).Logger()
+	logger.Info().Msg("create user")
+	logger.Trace().Any("attributes", attributes).Msg("creating user")
 	user, err := common.ResourceAttributesToUser(attributes)
 	if err != nil {
-		u.logger.Error().Err(err).Msg("failed to convert attributes to user")
+		logger.Error().Err(err).Msg("failed to convert attributes to user")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
 
 	object, err := common.UserToObject(user)
 	if err != nil {
-		u.logger.Error().Err(err).Msg("failed to convert user to object")
+		logger.Error().Err(err).Msg("failed to convert user to object")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
 
+	logger.Trace().Any("object", object).Msg("creating user object")
 	resp, err := u.dirClient.Writer.SetObject(r.Context(), &dsw.SetObjectRequest{
 		Object: object,
 	})

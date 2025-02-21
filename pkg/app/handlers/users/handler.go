@@ -54,6 +54,7 @@ func (u UsersResourceHandler) setUserGroups(ctx context.Context, userID string, 
 
 	for _, v := range relations.Results {
 		if v.Relation == u.cfg.SCIM.GroupMemberRelation {
+			u.logger.Trace().Str("user_id", userID).Str("group", v.ObjectId).Msg("removing user from group")
 			_, err = u.dirClient.Writer.DeleteRelation(ctx, &dsw.DeleteRelationRequest{
 				SubjectType: v.SubjectType,
 				SubjectId:   v.SubjectId,
@@ -68,6 +69,7 @@ func (u UsersResourceHandler) setUserGroups(ctx context.Context, userID string, 
 	}
 
 	for _, v := range groups {
+		u.logger.Trace().Str("user_id", userID).Str("group", v.Value).Msg("setting user group")
 		_, err = u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
 			Relation: &dsc.Relation{
 				SubjectId:   userID,
@@ -94,6 +96,7 @@ func (u UsersResourceHandler) addUserToGroup(ctx context.Context, userID, group 
 	})
 	if err != nil {
 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrRelationNotFound) {
+			u.logger.Trace().Str("user_id", userID).Str("group", group).Msg("adding user to group")
 			_, err = u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
 				Relation: &dsc.Relation{
 					SubjectId:   userID,
@@ -128,6 +131,7 @@ func (u UsersResourceHandler) removeUserFromGroup(ctx context.Context, userID, g
 		return err
 	}
 
+	u.logger.Trace().Str("user_id", userID).Str("group", group).Msg("removing user from group")
 	_, err = u.dirClient.Writer.DeleteRelation(ctx, &dsw.DeleteRelationRequest{
 		SubjectType: u.cfg.SCIM.UserObjectType,
 		SubjectId:   userID,
@@ -144,6 +148,7 @@ func (u UsersResourceHandler) setIdentity(ctx context.Context, userID, identity 
 		return err
 	}
 
+	u.logger.Trace().Str("user_id", userID).Str("identity", identity).Any("props", props).Msg("setting identity")
 	_, err = u.dirClient.Writer.SetObject(ctx, &dsw.SetObjectRequest{
 		Object: &dsc.Object{
 			Type:       u.cfg.SCIM.IdentityObjectType,
@@ -174,11 +179,13 @@ func (u UsersResourceHandler) setIdentity(ctx context.Context, userID, identity 
 		}
 	}
 
+	u.logger.Trace().Str("user_id", userID).Str("identity", identity).Any("relation", rel).Msg("setting identity relation")
 	_, err = u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{Relation: rel})
 	return err
 }
 
 func (u UsersResourceHandler) removeIdentity(ctx context.Context, identity string) error {
+	u.logger.Info().Str("identity", identity).Msg("removing identity")
 	_, err := u.dirClient.Writer.DeleteObject(ctx, &dsw.DeleteObjectRequest{
 		ObjectType:    u.cfg.SCIM.IdentityObjectType,
 		ObjectId:      identity,
@@ -189,7 +196,9 @@ func (u UsersResourceHandler) removeIdentity(ctx context.Context, identity strin
 }
 
 func (u UsersResourceHandler) setAllIdentities(ctx context.Context, userID string, user *common.User) error {
+	u.logger.Info().Str("user_id", userID).Msg("setting identities")
 	if user.UserName != "" {
+		u.logger.Debug().Str("user_id", userID).Str("username", user.UserName).Msg("setting username identity")
 		err := u.setIdentity(ctx, userID, user.UserName, map[string]interface{}{IdentityKindKey: "IDENTITY_KIND_USERNAME"})
 		if err != nil {
 			return err
@@ -202,6 +211,7 @@ func (u UsersResourceHandler) setAllIdentities(ctx context.Context, userID strin
 				continue
 			}
 
+			u.logger.Debug().Str("user_id", userID).Str("email", email.Value).Msg("setting email identity")
 			err := u.setIdentity(ctx, userID, email.Value, map[string]interface{}{IdentityKindKey: "IDENTITY_KIND_EMAIL"})
 			if err != nil {
 				return err
@@ -210,6 +220,7 @@ func (u UsersResourceHandler) setAllIdentities(ctx context.Context, userID strin
 	}
 
 	if user.ExternalID != "" {
+		u.logger.Debug().Str("user_id", userID).Str("external_id", user.ExternalID).Msg("setting external_id identity")
 		err := u.setIdentity(ctx, userID, user.ExternalID, map[string]interface{}{IdentityKindKey: "IDENTITY_KIND_PID"})
 		if err != nil {
 			return err
@@ -222,6 +233,7 @@ func (u UsersResourceHandler) setAllIdentities(ctx context.Context, userID strin
 func (u UsersResourceHandler) setUserMappings(ctx context.Context, userID string) error {
 	for _, userMap := range u.cfg.SCIM.UserMappings {
 		if userMap.SubjectID == userID {
+			u.logger.Trace().Str("user_id", userID).Str("object_id", userMap.ObjectID).Msg("setting user mapping")
 			_, err := u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
 				Relation: &dsc.Relation{
 					SubjectType:     u.cfg.SCIM.UserObjectType,

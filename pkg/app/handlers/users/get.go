@@ -15,7 +15,11 @@ import (
 )
 
 func (u UsersResourceHandler) Get(r *http.Request, id string) (scim.Resource, error) {
-	u.logger.Trace().Str("user_id", id).Msg("get user")
+	if id == "" {
+		return scim.Resource{}, serrors.ScimErrorBadRequest("missing id")
+	}
+
+	u.logger.Info().Str("user_id", id).Msg("get user")
 	resp, err := u.dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
 		ObjectType:    u.cfg.SCIM.UserObjectType,
 		ObjectId:      id,
@@ -40,7 +44,7 @@ func (u UsersResourceHandler) Get(r *http.Request, id string) (scim.Resource, er
 }
 
 func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestParams) (scim.Page, error) {
-	u.logger.Trace().Msg("getall users")
+	u.logger.Info().Msg("getall users")
 
 	var (
 		resources = make([]scim.Resource, 0)

@@ -18,6 +18,10 @@ import (
 )
 
 func (u UsersResourceHandler) Patch(r *http.Request, id string, operations []scim.PatchOperation) (scim.Resource, error) {
+	if id == "" {
+		return scim.Resource{}, serrors.ScimErrorBadRequest("missing id")
+	}
+
 	u.logger.Trace().Str("user_id", id).Any("operations", operations).Msg("patching user")
 	getObjResp, err := u.dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
 		ObjectType:    u.cfg.SCIM.UserObjectType,

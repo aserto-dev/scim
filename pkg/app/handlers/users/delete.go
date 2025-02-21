@@ -14,7 +14,12 @@ import (
 )
 
 func (u UsersResourceHandler) Delete(r *http.Request, id string) error {
-	u.logger.Trace().Str("user_id", id).Msg("deleting user")
+	if id == "" {
+		return serrors.ScimErrorBadRequest("missing id")
+	}
+
+	logger := u.logger.With().Str("method", "Delete").Str("id", id).Logger()
+	logger.Info().Msg("delete user")
 	relations, err := u.dirClient.Reader.GetRelations(r.Context(), &dsr.GetRelationsRequest{
 		SubjectType: u.cfg.SCIM.UserObjectType,
 		SubjectId:   id,
@@ -47,6 +52,7 @@ func (u UsersResourceHandler) Delete(r *http.Request, id string) error {
 	}
 
 	for _, v := range identities {
+		logger.Trace().Str("id", v.ObjectId).Msg("deleting identity")
 		_, err = u.dirClient.Writer.DeleteObject(r.Context(), &dsw.DeleteObjectRequest{
 			ObjectId:      v.ObjectId,
 			ObjectType:    v.ObjectType,
