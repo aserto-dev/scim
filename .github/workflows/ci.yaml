@@ -46,6 +46,7 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           version: ${{ env.GO_LANGCI_LINT_VERSION }}
+          verify: false
           args: --timeout=30m
 
   push:

@@ -75,7 +75,7 @@ func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 			})
 
 			if params.FilterValidator == nil || params.FilterValidator.PassesFilter(resource.Attributes) == nil {
-				if skipIndex <= params.StartIndex {
+				if skipIndex < params.StartIndex {
 					skipIndex++
 					continue
 				}
