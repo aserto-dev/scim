@@ -14,10 +14,6 @@ import (
 )
 
 func (u UsersResourceHandler) Delete(r *http.Request, id string) error {
-	if id == "" {
-		return serrors.ScimErrorBadRequest("missing id")
-	}
-
 	logger := u.logger.With().Str("method", "Delete").Str("id", id).Logger()
 	logger.Info().Msg("delete user")
 	relations, err := u.dirClient.Reader.GetRelations(r.Context(), &dsr.GetRelationsRequest{
@@ -25,6 +21,7 @@ func (u UsersResourceHandler) Delete(r *http.Request, id string) error {
 		SubjectId:   id,
 	})
 	if err != nil {
+		logger.Err(err).Msg("failed to get relations")
 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
 			return serrors.ScimErrorResourceNotFound(id)
 		}
@@ -39,6 +36,7 @@ func (u UsersResourceHandler) Delete(r *http.Request, id string) error {
 			ObjectId:    id,
 		})
 		if err != nil {
+			logger.Err(err).Msg("failed to get identities")
 			if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
 				return serrors.ScimErrorResourceNotFound(id)
 			}
@@ -59,6 +57,7 @@ func (u UsersResourceHandler) Delete(r *http.Request, id string) error {
 			WithRelations: true,
 		})
 		if err != nil {
+			logger.Err(err).Msg("failed to delete identity")
 			return err
 		}
 	}
@@ -69,10 +68,13 @@ func (u UsersResourceHandler) Delete(r *http.Request, id string) error {
 		WithRelations: true,
 	})
 	if err != nil {
+		logger.Err(err).Msg("failed to delete user")
 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
 			return serrors.ScimErrorResourceNotFound(id)
 		}
 	}
+
+	logger.Trace().Msg("user deleted")
 
 	return err
 }

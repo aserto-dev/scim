@@ -15,17 +15,15 @@ import (
 )
 
 func (u UsersResourceHandler) Get(r *http.Request, id string) (scim.Resource, error) {
-	if id == "" {
-		return scim.Resource{}, serrors.ScimErrorBadRequest("missing id")
-	}
-
-	u.logger.Info().Str("user_id", id).Msg("get user")
+	logger := u.logger.With().Str("method", "Get").Str("id", id).Logger()
+	logger.Info().Msg("get user")
 	resp, err := u.dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
 		ObjectType:    u.cfg.SCIM.UserObjectType,
 		ObjectId:      id,
 		WithRelations: true,
 	})
 	if err != nil {
+		logger.Err(err).Str("id", id).Msg("failed to get user")
 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
 			return scim.Resource{}, serrors.ScimErrorResourceNotFound(id)
 		}
@@ -40,11 +38,14 @@ func (u UsersResourceHandler) Get(r *http.Request, id string) (scim.Resource, er
 		Version:      resp.Result.Etag,
 	})
 
+	logger.Trace().Any("user", resource).Msg("user retrieved")
+
 	return resource, nil
 }
 
 func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestParams) (scim.Page, error) {
-	u.logger.Info().Msg("getall users")
+	logger := u.logger.With().Str("method", "GetAll").Logger()
+	logger.Info().Msg("getall users")
 
 	var (
 		resources = make([]scim.Resource, 0)
@@ -60,6 +61,7 @@ func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 	for {
 		resp, err := u.getUsers(r.Context(), pageSize, pageToken)
 		if err != nil {
+			logger.Err(err).Msg("failed to get users")
 			return scim.Page{}, err
 		}
 
@@ -91,6 +93,8 @@ func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 			break
 		}
 	}
+
+	logger.Trace().Int("total_results", len(resources)).Msg("users read")
 
 	return scim.Page{
 		TotalResults: len(resources),

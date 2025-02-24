@@ -39,6 +39,7 @@ func NewGroupResourceHandler(cfg *config.Config, logger *zerolog.Logger) (*Group
 func (u GroupResourceHandler) setGroupMappings(ctx context.Context, groupID string) error {
 	for _, groupMap := range u.cfg.SCIM.GroupMappings {
 		if groupMap.SubjectID == groupID {
+			u.logger.Trace().Str("groupID", groupID).Str("relation", groupMap.Relation).Str("objectID", groupMap.ObjectID).Msg("setting group mapping")
 			_, err := u.dirClient.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
 				Relation: &dsc.Relation{
 					SubjectType:     u.cfg.SCIM.GroupObjectType,
@@ -50,6 +51,7 @@ func (u GroupResourceHandler) setGroupMappings(ctx context.Context, groupID stri
 				},
 			})
 			if err != nil {
+				u.logger.Error().Err(err).Str("groupID", groupID).Str("relation", groupMap.Relation).Str("objectID", groupMap.ObjectID).Msg("failed to set group mapping")
 				return err
 			}
 		}

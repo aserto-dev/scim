@@ -14,12 +14,17 @@ import (
 )
 
 func (u GroupResourceHandler) Replace(r *http.Request, id string, attributes scim.ResourceAttributes) (scim.Resource, error) {
+	logger := u.logger.With().Str("method", "Replace").Str("id", id).Logger()
+	logger.Info().Msg("replace group")
+	logger.Trace().Any("attributes", attributes).Msg("replacing group")
+
 	getObjResp, err := u.dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
 		ObjectType:    "grroup",
 		ObjectId:      id,
 		WithRelations: true,
 	})
 	if err != nil {
+		logger.Err(err).Msg("failed to get group")
 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
 			return scim.Resource{}, serrors.ScimErrorResourceNotFound(id)
 		}
@@ -28,6 +33,7 @@ func (u GroupResourceHandler) Replace(r *http.Request, id string, attributes sci
 
 	object, err := common.ResourceAttributesToObject(attributes, u.cfg.SCIM.GroupObjectType, id)
 	if err != nil {
+		logger.Err(err).Msg("failed to convert attributes to object")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
 	object.Id = id
@@ -37,6 +43,7 @@ func (u GroupResourceHandler) Replace(r *http.Request, id string, attributes sci
 		Object: object,
 	})
 	if err != nil {
+		logger.Err(err).Msg("failed to replace group")
 		return scim.Resource{}, err
 	}
 
@@ -47,6 +54,8 @@ func (u GroupResourceHandler) Replace(r *http.Request, id string, attributes sci
 		LastModified: &updatedAt,
 		Version:      setResp.Result.Etag,
 	})
+
+	logger.Trace().Any("resource", resource).Msg("group replaced")
 
 	return resource, nil
 }

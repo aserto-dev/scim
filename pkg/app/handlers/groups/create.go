@@ -10,8 +10,13 @@ import (
 )
 
 func (u GroupResourceHandler) Create(r *http.Request, attributes scim.ResourceAttributes) (scim.Resource, error) {
+	logger := u.logger.With().Str("method", "Create").Str("id", attributes["id"].(string)).Logger()
+	logger.Info().Msg("create group")
+	logger.Trace().Any("attributes", attributes).Msg("creating group")
+
 	object, err := common.ResourceAttributesToObject(attributes, u.cfg.SCIM.GroupObjectType, attributes["displayName"].(string))
 	if err != nil {
+		logger.Error().Err(err).Msg("failed to convert attributes to object")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
 
@@ -19,11 +24,15 @@ func (u GroupResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 		Object: object,
 	})
 	if err != nil {
+		logger.Error().Err(err).Msg("failed to create group")
 		return scim.Resource{}, err
 	}
 
+	logger.Trace().Any("response", resp.Result).Msg("group object created")
+
 	err = u.setGroupMappings(r.Context(), resp.Result.Id)
 	if err != nil {
+		logger.Err(err).Msg("failed to set group mappings")
 		return scim.Resource{}, err
 	}
 
@@ -34,6 +43,8 @@ func (u GroupResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 		LastModified: &updatedAt,
 		Version:      resp.Result.Etag,
 	})
+
+	logger.Trace().Any("resource", resource).Msg("group created")
 
 	return resource, nil
 }

@@ -13,22 +13,18 @@ import (
 )
 
 func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAttributes) (scim.Resource, error) {
-	if attributes["id"] == nil || attributes["id"].(string) == "" {
-		return scim.Resource{}, serrors.ScimErrorBadRequest("missing id")
-	}
-
 	logger := u.logger.With().Str("method", "Create").Str("id", attributes["id"].(string)).Logger()
 	logger.Info().Msg("create user")
 	logger.Trace().Any("attributes", attributes).Msg("creating user")
 	user, err := common.ResourceAttributesToUser(attributes)
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to convert attributes to user")
+		logger.Err(err).Msg("failed to convert attributes to user")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
 
 	object, err := common.UserToObject(user)
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to convert user to object")
+		logger.Err(err).Msg("failed to convert user to object")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
 
@@ -37,6 +33,7 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 		Object: object,
 	})
 	if err != nil {
+		logger.Err(err).Msg("failed to create user")
 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrAlreadyExists) {
 			return scim.Resource{}, serrors.ScimErrorUniqueness
 		}
@@ -53,18 +50,23 @@ func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAt
 
 	err = u.setAllIdentities(r.Context(), resp.Result.Id, user)
 	if err != nil {
+		logger.Err(err).Msg("failed to set identities")
 		return scim.Resource{}, err
 	}
 
 	err = u.setUserGroups(r.Context(), resp.Result.Id, user.Groups)
 	if err != nil {
+		logger.Err(err).Msg("failed to set groups")
 		return scim.Resource{}, err
 	}
 
 	err = u.setUserMappings(r.Context(), resp.Result.Id)
 	if err != nil {
+		logger.Err(err).Msg("failed to set mappings")
 		return scim.Resource{}, err
 	}
+
+	logger.Trace().Any("resource", resource).Msg("user created")
 
 	return resource, nil
 }
