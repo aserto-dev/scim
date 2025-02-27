@@ -10,50 +10,52 @@ import (
 	"github.com/aserto-dev/go-directory/pkg/derr"
 	serrors "github.com/elimity-com/scim/errors"
 	"github.com/pkg/errors"
-	"github.com/samber/lo"
 )
 
 func (u UsersResourceHandler) Delete(r *http.Request, id string) error {
 	logger := u.logger.With().Str("method", "Delete").Str("id", id).Logger()
 	logger.Info().Msg("delete user")
-	relations, err := u.dirClient.Reader.GetRelations(r.Context(), &dsr.GetRelationsRequest{
-		SubjectType: u.cfg.SCIM.UserObjectType,
-		SubjectId:   id,
+
+	identityRelation, err := u.getIdentityRelation(id, "")
+	if err != nil {
+		u.logger.Err(err).Msg("failed to get identity relation")
+		return err
+	}
+
+	var identities []*dsc.Relation
+
+	resp, err := u.dirClient.Reader.GetRelations(r.Context(), &dsr.GetRelationsRequest{
+		SubjectType: identityRelation.SubjectType,
+		SubjectId:   identityRelation.SubjectId,
+		Relation:    identityRelation.Relation,
+		ObjectId:    identityRelation.ObjectId,
+		ObjectType:  identityRelation.ObjectType,
 	})
 	if err != nil {
-		logger.Err(err).Msg("failed to get relations")
+		logger.Err(err).Msg("failed to get identities")
 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
 			return serrors.ScimErrorResourceNotFound(id)
 		}
 		return err
 	}
-
-	var identities []*dsc.Relation
-	if u.cfg.SCIM.InvertIdentityRelation {
-		resp, err := u.dirClient.Reader.GetRelations(r.Context(), &dsr.GetRelationsRequest{
-			SubjectType: u.cfg.SCIM.IdentityObjectType,
-			Relation:    u.cfg.SCIM.IdentityRelation,
-			ObjectId:    id,
-		})
-		if err != nil {
-			logger.Err(err).Msg("failed to get identities")
-			if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
-				return serrors.ScimErrorResourceNotFound(id)
-			}
-			return err
-		}
-		identities = resp.Results
-	} else {
-		identities = lo.Filter(relations.Results, func(rel *dsc.Relation, i int) bool {
-			return rel.Relation == u.cfg.SCIM.IdentityRelation
-		})
-	}
+	identities = resp.Results
 
 	for _, v := range identities {
-		logger.Trace().Str("id", v.ObjectId).Msg("deleting identity")
+		var objectID string
+		switch v.ObjectType {
+		case u.cfg.SCIM.IdentityObjectType:
+			objectID = v.ObjectId
+		case u.cfg.SCIM.UserObjectType:
+			objectID = v.SubjectId
+		default:
+			logger.Error().Str("object_type", v.ObjectType).Msg("unexpected object type")
+			return serrors.ScimErrorBadRequest("unexpected object type in identity relation")
+		}
+
+		logger.Trace().Str("identity", objectID).Msg("deleting identity")
 		_, err = u.dirClient.Writer.DeleteObject(r.Context(), &dsw.DeleteObjectRequest{
-			ObjectId:      v.ObjectId,
-			ObjectType:    v.ObjectType,
+			ObjectId:      objectID,
+			ObjectType:    u.cfg.SCIM.IdentityObjectType,
 			WithRelations: true,
 		})
 		if err != nil {

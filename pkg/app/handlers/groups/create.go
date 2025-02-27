@@ -10,7 +10,7 @@ import (
 )
 
 func (u GroupResourceHandler) Create(r *http.Request, attributes scim.ResourceAttributes) (scim.Resource, error) {
-	logger := u.logger.With().Str("method", "Create").Str("id", attributes["id"].(string)).Logger()
+	logger := u.logger.With().Str("method", "Create").Str("displayName", attributes["displayName"].(string)).Logger()
 	logger.Info().Msg("create group")
 	logger.Trace().Any("attributes", attributes).Msg("creating group")
 

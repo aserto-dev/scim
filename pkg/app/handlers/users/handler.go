@@ -160,23 +160,10 @@ func (u UsersResourceHandler) setIdentity(ctx context.Context, userID, identity 
 		return err
 	}
 
-	var rel *dsc.Relation
-	if u.cfg.SCIM.InvertIdentityRelation {
-		rel = &dsc.Relation{
-			SubjectId:   identity,
-			SubjectType: u.cfg.SCIM.IdentityObjectType,
-			Relation:    u.cfg.SCIM.IdentityRelation,
-			ObjectType:  u.cfg.SCIM.UserObjectType,
-			ObjectId:    userID,
-		}
-	} else {
-		rel = &dsc.Relation{
-			SubjectId:   userID,
-			SubjectType: u.cfg.SCIM.UserObjectType,
-			Relation:    u.cfg.SCIM.IdentityRelation,
-			ObjectType:  u.cfg.SCIM.IdentityObjectType,
-			ObjectId:    identity,
-		}
+	rel, err := u.getIdentityRelation(userID, identity)
+	if err != nil {
+		u.logger.Err(err).Msg("failed to get identity relation")
+		return err
 	}
 
 	u.logger.Trace().Str("user_id", userID).Str("identity", identity).Any("relation", rel).Msg("setting identity relation")
@@ -250,4 +237,27 @@ func (u UsersResourceHandler) setUserMappings(ctx context.Context, userID string
 		}
 	}
 	return nil
+}
+
+func (u UsersResourceHandler) getIdentityRelation(userID, identity string) (*dsc.Relation, error) {
+	switch u.cfg.SCIM.Identity.ObjectType {
+	case u.cfg.SCIM.IdentityObjectType:
+		return &dsc.Relation{
+			SubjectId:   userID,
+			SubjectType: u.cfg.SCIM.UserObjectType,
+			Relation:    u.cfg.SCIM.Identity.Relation,
+			ObjectType:  u.cfg.SCIM.IdentityObjectType,
+			ObjectId:    identity,
+		}, nil
+	case u.cfg.SCIM.UserObjectType:
+		return &dsc.Relation{
+			SubjectId:   identity,
+			SubjectType: u.cfg.SCIM.IdentityObjectType,
+			Relation:    u.cfg.SCIM.Identity.Relation,
+			ObjectType:  u.cfg.SCIM.UserObjectType,
+			ObjectId:    userID,
+		}, nil
+	default:
+		return nil, errors.New("invalid identity relation")
+	}
 }

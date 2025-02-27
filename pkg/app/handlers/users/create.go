@@ -13,7 +13,7 @@ import (
 )
 
 func (u UsersResourceHandler) Create(r *http.Request, attributes scim.ResourceAttributes) (scim.Resource, error) {
-	logger := u.logger.With().Str("method", "Create").Str("id", attributes["id"].(string)).Logger()
+	logger := u.logger.With().Str("method", "Create").Str("userName", attributes["userName"].(string)).Logger()
 	logger.Info().Msg("create user")
 	logger.Trace().Any("attributes", attributes).Msg("creating user")
 	user, err := common.ResourceAttributesToUser(attributes)
