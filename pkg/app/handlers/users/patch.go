@@ -18,13 +18,16 @@ import (
 )
 
 func (u UsersResourceHandler) Patch(r *http.Request, id string, operations []scim.PatchOperation) (scim.Resource, error) {
-	u.logger.Trace().Str("user_id", id).Any("operations", operations).Msg("patching user")
+	logger := u.logger.With().Str("method", "Patch").Str("id", id).Logger()
+	logger.Info().Msg("patch user")
+	logger.Trace().Str("id", id).Any("operations", operations).Msg("patching user")
 	getObjResp, err := u.dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
 		ObjectType:    u.cfg.SCIM.UserObjectType,
 		ObjectId:      id,
 		WithRelations: true,
 	})
 	if err != nil {
+		logger.Err(err).Msg("failed to get user")
 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
 			return scim.Resource{}, serrors.ScimErrorResourceNotFound(id)
 		}
@@ -38,16 +41,19 @@ func (u UsersResourceHandler) Patch(r *http.Request, id string, operations []sci
 		case scim.PatchOperationAdd:
 			err := u.handlePatchOPAdd(r.Context(), object, op)
 			if err != nil {
+				logger.Err(err).Msg("error adding property")
 				return scim.Resource{}, err
 			}
 		case scim.PatchOperationRemove:
 			err := u.handlePatchOPRemove(r.Context(), object, op)
 			if err != nil {
+				logger.Err(err).Msg("error removing property")
 				return scim.Resource{}, err
 			}
 		case scim.PatchOperationReplace:
 			err := u.handlePatchOPReplace(object, op)
 			if err != nil {
+				logger.Err(err).Msg("error replacing property")
 				return scim.Resource{}, err
 			}
 		}
@@ -61,7 +67,7 @@ func (u UsersResourceHandler) Patch(r *http.Request, id string, operations []sci
 		Object: object,
 	})
 	if err != nil {
-		u.logger.Err(err).Msg("error setting object")
+		logger.Err(err).Msg("error setting object")
 		return scim.Resource{}, err
 	}
 

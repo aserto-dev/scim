@@ -78,6 +78,7 @@ linters:
     - gocritic
     - gocyclo
     - godot
+    - godox
     - err113
     - gofmt
     - goimports
@@ -103,7 +104,6 @@ linters:
     # - dupl
     # - gochecknoglobals
     # - gocognit
-    # - godox
     # - gomnd
     # - lll
     # - nestif
