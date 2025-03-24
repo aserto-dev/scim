@@ -2,28 +2,30 @@ package users
 
 import (
 	"context"
-	"net/http"
 
 	cerr "github.com/aserto-dev/errors"
 	dsc "github.com/aserto-dev/go-directory/aserto/directory/common/v3"
 	dsr "github.com/aserto-dev/go-directory/aserto/directory/reader/v3"
 	"github.com/aserto-dev/go-directory/pkg/derr"
-	"github.com/aserto-dev/scim/pkg/common"
+	"github.com/aserto-dev/scim/common/convert"
 	"github.com/elimity-com/scim"
 	serrors "github.com/elimity-com/scim/errors"
 	"github.com/pkg/errors"
 )
 
-func (u UsersResourceHandler) Get(r *http.Request, id string) (scim.Resource, error) {
+func (u UsersResourceHandler) Get(ctx context.Context, id string) (scim.Resource, error) {
 	logger := u.logger.With().Str("method", "Get").Str("id", id).Logger()
 	logger.Info().Msg("get user")
-	resp, err := u.dirClient.Reader.GetObject(r.Context(), &dsr.GetObjectRequest{
-		ObjectType:    u.cfg.SCIM.UserObjectType,
+
+	converter := convert.NewConverter(u.cfg)
+
+	resp, err := u.dirClient.DS().Reader.GetObject(ctx, &dsr.GetObjectRequest{
+		ObjectType:    u.cfg.User.SourceObjectType,
 		ObjectId:      id,
-		WithRelations: true,
+		WithRelations: false,
 	})
 	if err != nil {
-		logger.Err(err).Str("id", id).Msg("failed to get user")
+		logger.Err(err).Msg("failed to get user")
 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
 			return scim.Resource{}, serrors.ScimErrorResourceNotFound(id)
 		}
@@ -32,7 +34,7 @@ func (u UsersResourceHandler) Get(r *http.Request, id string) (scim.Resource, er
 
 	createdAt := resp.Result.CreatedAt.AsTime()
 	updatedAt := resp.Result.UpdatedAt.AsTime()
-	resource := common.ObjectToResource(resp.Result, scim.Meta{
+	resource := converter.ObjectToResource(resp.Result, scim.Meta{
 		Created:      &createdAt,
 		LastModified: &updatedAt,
 		Version:      resp.Result.Etag,
@@ -43,9 +45,9 @@ func (u UsersResourceHandler) Get(r *http.Request, id string) (scim.Resource, er
 	return resource, nil
 }
 
-func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestParams) (scim.Page, error) {
+func (u UsersResourceHandler) GetAll(ctx context.Context, params scim.ListRequestParams) (scim.Page, error) {
 	logger := u.logger.With().Str("method", "GetAll").Logger()
-	logger.Info().Msg("getall users")
+	logger.Info().Msg("getting all users")
 
 	var (
 		resources = make([]scim.Resource, 0)
@@ -58,8 +60,10 @@ func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 		pageSize = params.Count
 	}
 
+	converter := convert.NewConverter(u.cfg)
+
 	for {
-		resp, err := u.getUsers(r.Context(), pageSize, pageToken)
+		resp, err := u.getUsers(ctx, pageSize, pageToken)
 		if err != nil {
 			logger.Err(err).Msg("failed to get users")
 			return scim.Page{}, err
@@ -70,7 +74,7 @@ func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 		for _, v := range resp.Results {
 			createdAt := v.CreatedAt.AsTime()
 			updatedAt := v.UpdatedAt.AsTime()
-			resource := common.ObjectToResource(v, scim.Meta{
+			resource := converter.ObjectToResource(v, scim.Meta{
 				Created:      &createdAt,
 				LastModified: &updatedAt,
 				Version:      v.Etag,
@@ -103,8 +107,8 @@ func (u UsersResourceHandler) GetAll(r *http.Request, params scim.ListRequestPar
 }
 
 func (u UsersResourceHandler) getUsers(ctx context.Context, count int, pageToken string) (*dsr.GetObjectsResponse, error) {
-	return u.dirClient.Reader.GetObjects(ctx, &dsr.GetObjectsRequest{
-		ObjectType: u.cfg.SCIM.UserObjectType,
+	return u.dirClient.DS().Reader.GetObjects(ctx, &dsr.GetObjectsRequest{
+		ObjectType: u.cfg.User.SourceObjectType,
 		Page: &dsc.PaginationRequest{
 			Size:  int32(count), //nolint:gosec
 			Token: pageToken,

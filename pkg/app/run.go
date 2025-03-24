@@ -7,13 +7,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aserto-dev/go-aserto/ds/v3"
 	"github.com/aserto-dev/logger"
-	"github.com/aserto-dev/scim/pkg/app/handlers/groups"
-	"github.com/aserto-dev/scim/pkg/app/handlers/users"
+	"github.com/aserto-dev/scim/common/convert"
+	"github.com/aserto-dev/scim/common/handlers/groups"
+	"github.com/aserto-dev/scim/common/handlers/users"
+	"github.com/aserto-dev/scim/pkg/app/directory"
 	"github.com/aserto-dev/scim/pkg/config"
 	"github.com/elimity-com/scim"
 	"github.com/elimity-com/scim/optional"
 	"github.com/elimity-com/scim/schema"
+	"github.com/rs/zerolog"
 )
 
 func Run(cfgPath string, logWriter logger.Writer, errWriter logger.ErrWriter) error {
@@ -27,7 +31,17 @@ func Run(cfgPath string, logWriter logger.Writer, errWriter logger.ErrWriter) er
 		return err
 	}
 
-	userHandler, err := users.NewUsersResourceHandler(cfg, scimLogger)
+	dsClient, err := directory.GetDirectoryClient(&cfg.Directory)
+	if err != nil {
+		return err
+	}
+
+	transformCfg, err := convert.NewTransformConfig(&cfg.SCIM)
+	if err != nil {
+		return err
+	}
+
+	userHandler, err := userHandler(scimLogger, transformCfg, dsClient)
 	if err != nil {
 		return err
 	}
@@ -44,7 +58,7 @@ func Run(cfgPath string, logWriter logger.Writer, errWriter logger.ErrWriter) er
 		Handler: userHandler,
 	}
 
-	groupHandler, err := groups.NewGroupResourceHandler(cfg, scimLogger)
+	groupHandler, err := groupHandler(scimLogger, transformCfg, dsClient)
 	if err != nil {
 		return err
 	}
@@ -104,6 +118,26 @@ func Run(cfgPath string, logWriter logger.Writer, errWriter logger.ErrWriter) er
 	}
 
 	return srv.ListenAndServe()
+}
+
+func userHandler(scimLogger *zerolog.Logger, cfg *convert.TransformConfig, dsClient *ds.Client) (scim.ResourceHandler, error) {
+	usersLogger := scimLogger.With().Str("component", "users").Logger()
+	usersResourceHandler, err := users.NewUsersResourceHandler(&usersLogger, cfg, dsClient)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewUsersResourceHandler(usersResourceHandler)
+}
+
+func groupHandler(scimLogger *zerolog.Logger, cfg *convert.TransformConfig, dsClient *ds.Client) (scim.ResourceHandler, error) {
+	groupsLogger := scimLogger.With().Str("component", "groups").Logger()
+	groupsResourceHandler, err := groups.NewGroupResourceHandler(&groupsLogger, cfg, dsClient)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewGroupResourceHandler(groupsResourceHandler)
 }
 
 type application struct {
