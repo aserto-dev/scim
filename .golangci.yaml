@@ -2,14 +2,10 @@
 # golangci.com configuration
 # https://github.com/golangci/golangci/wiki/Configuration
 
+run:
+  timeout: 5m
+
 linters-settings:
-  depguard:
-    list-type: blacklist
-    packages:
-      # logging is allowed only by zerolog
-      - github.com/sirupsen/logrus
-    packages-with-error-message:
-      - github.com/sirupsen/logrus: "logging is allowed only by zerolog"
   dupl:
     threshold: 100
   funlen:
@@ -35,16 +31,7 @@ linters-settings:
     min-complexity: 18
   goimports:
     local-prefixes: github.com/golangci/golangci-lint
-  golint:
-    min-confidence: 0
-  gomnd:
-    checks:
-      - argument
-      - case
-      - condition
-      - return
   govet:
-    shadow: true
     settings:
       printf:
         funcs:
@@ -52,8 +39,6 @@ linters-settings:
           - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
           - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
           - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
-  maligned:
-    suggest-new: true
   misspell:
     locale: US
   nolintlint:
@@ -68,9 +53,10 @@ linters:
   enable:
     - asciicheck
     - bodyclose
+    - copyloopvar
     - dogsled
     - errcheck
-    - copyloopvar
+    - errname
     - exhaustive
     - funlen
     - gochecknoinits
@@ -78,7 +64,7 @@ linters:
     - gocritic
     - gocyclo
     - godot
-    - godox
+    - gosimple
     - err113
     - gofmt
     - goimports
@@ -86,6 +72,7 @@ linters:
     - gosec
     - gosimple
     - govet
+    - importas
     - ineffassign
     - misspell
     - nakedret
@@ -93,17 +80,20 @@ linters:
     - rowserrcheck
     - staticcheck
     - stylecheck
+    - testifylint
     - testpackage
     - typecheck
     - unconvert
     - unparam
     - unused
+    - wastedassign
 
   # don't enable:
     # - depguard
     # - dupl
     # - gochecknoglobals
     # - gocognit
+    # - godox
     # - gomnd
     # - lll
     # - nestif
@@ -145,6 +135,13 @@ issues:
       text: "hugeParam:"
       linters:
       - gocritic
+    # integer overflow conversion
+    - text: "G115" 
+      linters:
+      - gosec
     - text: "G404"
       linters:
       - gosec
+    - text: "SA1019: \\S+ is deprecated"
+      linters:
+        - staticcheck
