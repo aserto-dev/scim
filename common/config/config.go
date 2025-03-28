@@ -13,10 +13,6 @@ type SCIMConfig struct {
 	Group     *GroupOptions `json:"group"`
 	Role      *RoleOptions  `json:"role"`
 	Relations []*Relation   `json:"relations"`
-	Identity  struct {
-		ObjectType string
-		Relation   string
-	} `json:"-"`
 }
 
 type UserOptions struct {
@@ -67,9 +63,6 @@ func (cfg *SCIMConfig) Validate() error {
 		if relation == "" {
 			return errors.Wrap(ErrInvalidConfig, "identity relation relation is required")
 		}
-
-		cfg.Identity.ObjectType = object
-		cfg.Identity.Relation = relation
 	}
 	if cfg.Group != nil {
 		if cfg.Group.ObjectType == "" {

@@ -70,12 +70,13 @@ func NewConfig(configPath string) (*Config, error) { // nolint // function will 
 	v.SetDefault("server.auth.basic.enabled", "false")
 	v.SetDefault("server.auth.bearer.enabled", "false")
 
-	v.SetDefault("scim.create_email_identities", true)
-	v.SetDefault("scim.user_object_type", "user")
-	v.SetDefault("scim.identity_object_type", "identity")
-	v.SetDefault("scim.identity_relation", "user#identifier")
-	v.SetDefault("scim.group_object_type", "group")
-	v.SetDefault("scim.group_member_relation", "member")
+	v.SetDefault("scim.user.object_type", "user")
+	v.SetDefault("scim.user.identity_object_type", "identity")
+	v.SetDefault("scim.user.identity_relation", "user#identifier")
+	v.SetDefault("scim.user.source_object_type", "scim-user")
+	v.SetDefault("scim.group.object_type", "group")
+	v.SetDefault("scim.group.group_member_relation", "member")
+	v.SetDefault("scim.group.source_object_type", "scim-group")
 
 	// Allow setting via env vars.
 	v.SetDefault("directory.api_key", "")

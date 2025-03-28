@@ -40,10 +40,17 @@ func (s *Client) DS() *ds.Client {
 func (s *Client) SetUser(ctx context.Context, userID string, data *msg.Transform, userAttributes scim.ResourceAttributes) (scim.Meta, error) {
 	logger := s.logger.With().Str("method", "SetUser").Str("id", userID).Logger()
 	logger.Trace().Msg("set user")
+	idRelation, err := s.cfg.GetIdentityRelation(userID, "")
+	if err != nil {
+		return scim.Meta{}, err
+	}
+
 	relations, err := s.client.Reader.GetRelations(ctx, &dsr.GetRelationsRequest{
-		ObjectType:               s.cfg.User.ObjectType,
-		ObjectId:                 userID,
-		Relation:                 s.cfg.User.IdentityRelation,
+		ObjectType:               idRelation.ObjectType,
+		ObjectId:                 idRelation.ObjectId,
+		Relation:                 idRelation.Relation,
+		SubjectType:              idRelation.SubjectType,
+		SubjectId:                idRelation.SubjectId,
 		WithObjects:              false,
 		WithEmptySubjectRelation: true,
 	})

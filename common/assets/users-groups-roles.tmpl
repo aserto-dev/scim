@@ -110,7 +110,7 @@
       "subject_id": "{{ $subjId }}"
     }
     {{ end }}
-    {{ if and ($.input.manager_relation) (ne $.input.manager_relation "") }}
+    {{ if and ($.vars.user.manager_relation) (ne $.vars.user.manager_relation "") }}
     {{ $manager := index .input "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User" }}
     {{ if $manager }}
     {{ if and ($manager.manager.value) (ne $manager.manager.value "") }}
