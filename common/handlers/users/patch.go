@@ -35,25 +35,24 @@ func (u UsersResourceHandler) Patch(ctx context.Context, id string, operations [
 		return scim.Resource{}, err
 	}
 
-	var attr scim.ResourceAttributes
-	oldAttr := converter.ObjectToResourceAttributes(getObjResp.Result)
+	attr := converter.ObjectToResourceAttributes(getObjResp.Result)
 
 	for _, op := range operations {
 		switch op.Op {
 		case scim.PatchOperationAdd:
-			attr, err = common.HandlePatchOPAdd(oldAttr, op)
+			attr, err = common.HandlePatchOPAdd(attr, op)
 			if err != nil {
 				logger.Err(err).Msg("error adding property")
 				return scim.Resource{}, err
 			}
 		case scim.PatchOperationRemove:
-			attr, err = common.HandlePatchOPRemove(oldAttr, op)
+			attr, err = common.HandlePatchOPRemove(attr, op)
 			if err != nil {
 				logger.Err(err).Msg("error removing property")
 				return scim.Resource{}, err
 			}
 		case scim.PatchOperationReplace:
-			attr, err = common.HandlePatchOPReplace(oldAttr, op)
+			attr, err = common.HandlePatchOPReplace(attr, op)
 			if err != nil {
 				logger.Err(err).Msg("error replacing property")
 				return scim.Resource{}, err
