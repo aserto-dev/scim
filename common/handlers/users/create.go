@@ -28,14 +28,14 @@ func (u UsersResourceHandler) Create(ctx context.Context, attributes scim.Resour
 	converter := convert.NewConverter(u.cfg)
 	object, err := converter.SCIMUserToObject(user)
 	if err != nil {
-		logger.Err(err).Msg("failed to convert user to object")
+		logger.Error().Err(err).Msg("failed to convert user to object")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
 	sourceUserResp, err := u.dirClient.DS().Writer.SetObject(ctx, &dsw.SetObjectRequest{
 		Object: object,
 	})
 	if err != nil {
-		logger.Err(err).Msg("failed to create user")
+		logger.Error().Err(err).Msg("failed to create user")
 		return scim.Resource{}, err
 	}
 
@@ -53,7 +53,7 @@ func (u UsersResourceHandler) Create(ctx context.Context, attributes scim.Resour
 
 	meta, err := u.dirClient.SetUser(ctx, sourceUserResp.Result.Id, transformResult, attributes)
 	if err != nil {
-		logger.Err(err).Msg("failed to sync user")
+		logger.Error().Err(err).Msg("failed to sync user")
 		return scim.Resource{}, err
 	}
 

@@ -8,7 +8,7 @@ func (g GroupResourceHandler) Delete(ctx context.Context, id string) error {
 
 	err := g.dirClient.DeleteGroup(ctx, id)
 	if err != nil {
-		logger.Err(err).Msg("failed to delete group")
+		logger.Error().Err(err).Msg("failed to delete group")
 		return err
 	}
 

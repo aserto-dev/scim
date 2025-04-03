@@ -25,7 +25,7 @@ func (u UsersResourceHandler) Get(ctx context.Context, id string) (scim.Resource
 		WithRelations: false,
 	})
 	if err != nil {
-		logger.Err(err).Msg("failed to get user")
+		logger.Error().Err(err).Msg("failed to get user")
 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
 			return scim.Resource{}, serrors.ScimErrorResourceNotFound(id)
 		}
@@ -65,7 +65,7 @@ func (u UsersResourceHandler) GetAll(ctx context.Context, params scim.ListReques
 	for {
 		resp, err := u.getUsers(ctx, pageSize, pageToken)
 		if err != nil {
-			logger.Err(err).Msg("failed to get users")
+			logger.Error().Err(err).Msg("failed to get users")
 			return scim.Page{}, err
 		}
 

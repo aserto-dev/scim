@@ -13,13 +13,13 @@ func (u UsersResourceHandler) Replace(ctx context.Context, id string, attributes
 
 	err := u.Delete(ctx, id)
 	if err != nil {
-		logger.Err(err).Msg("failed to delete user")
+		logger.Error().Err(err).Msg("failed to delete user")
 		return scim.Resource{}, err
 	}
 
 	resource, err := u.Create(ctx, attributes)
 	if err != nil {
-		logger.Err(err).Msg("failed to create user")
+		logger.Error().Err(err).Msg("failed to create user")
 		return scim.Resource{}, err
 	}
 

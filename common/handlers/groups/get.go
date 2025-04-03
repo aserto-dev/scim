@@ -25,7 +25,7 @@ func (g GroupResourceHandler) Get(ctx context.Context, id string) (scim.Resource
 		WithRelations: false,
 	})
 	if err != nil {
-		logger.Err(err).Msg("failed to get group")
+		logger.Error().Err(err).Msg("failed to get group")
 		return scim.Resource{}, err
 	}
 
@@ -62,7 +62,7 @@ func (g GroupResourceHandler) GetAll(ctx context.Context, params scim.ListReques
 		},
 	})
 	if err != nil {
-		logger.Err(err).Msg("failed to read groups")
+		logger.Error().Err(err).Msg("failed to read groups")
 		return scim.Page{}, err
 	}
 

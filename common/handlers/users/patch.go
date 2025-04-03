@@ -42,39 +42,39 @@ func (u UsersResourceHandler) Patch(ctx context.Context, id string, operations [
 		case scim.PatchOperationAdd:
 			attr, err = common.HandlePatchOPAdd(attr, op)
 			if err != nil {
-				logger.Err(err).Msg("error adding property")
+				logger.Error().Err(err).Msg("error adding property")
 				return scim.Resource{}, err
 			}
 		case scim.PatchOperationRemove:
 			attr, err = common.HandlePatchOPRemove(attr, op)
 			if err != nil {
-				logger.Err(err).Msg("error removing property")
+				logger.Error().Err(err).Msg("error removing property")
 				return scim.Resource{}, err
 			}
 		case scim.PatchOperationReplace:
 			attr, err = common.HandlePatchOPReplace(attr, op)
 			if err != nil {
-				logger.Err(err).Msg("error replacing property")
+				logger.Error().Err(err).Msg("error replacing property")
 				return scim.Resource{}, err
 			}
 		}
 	}
 
 	if err != nil {
-		logger.Err(err).Msg("error handling patch operation")
+		logger.Error().Err(err).Msg("error handling patch operation")
 		return scim.Resource{}, err
 	}
 
 	transformResult, err := converter.TransformResource(attr, "user")
 	if err != nil {
-		logger.Err(err).Msg("failed to convert user to object")
+		logger.Error().Err(err).Msg("failed to convert user to object")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
 
 	userObj := getObjResp.Result
 	props, err := structpb.NewStruct(attr)
 	if err != nil {
-		logger.Err(err).Msg("failed to convert resource attributes to struct")
+		logger.Error().Err(err).Msg("failed to convert resource attributes to struct")
 		return scim.Resource{}, err
 	}
 	userObj.Properties = props
@@ -82,13 +82,13 @@ func (u UsersResourceHandler) Patch(ctx context.Context, id string, operations [
 		Object: userObj,
 	})
 	if err != nil {
-		logger.Err(err).Msg("failed to replace user")
+		logger.Error().Err(err).Msg("failed to replace user")
 		return scim.Resource{}, err
 	}
 
 	meta, err := u.dirClient.SetUser(ctx, getObjResp.Result.Id, transformResult, attr)
 	if err != nil {
-		logger.Err(err).Msg("failed to sync user")
+		logger.Error().Err(err).Msg("failed to sync user")
 		return scim.Resource{}, err
 	}
 

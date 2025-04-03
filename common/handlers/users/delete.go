@@ -17,7 +17,7 @@ func (u UsersResourceHandler) Delete(ctx context.Context, id string) error {
 
 	identityRelation, err := u.cfg.GetIdentityRelation(id, "")
 	if err != nil {
-		logger.Err(err).Msg("failed to get identity relation")
+		logger.Error().Err(err).Msg("failed to get identity relation")
 	}
 
 	resp, err := u.dirClient.DS().Reader.GetRelations(ctx, &dsr.GetRelationsRequest{
@@ -28,7 +28,7 @@ func (u UsersResourceHandler) Delete(ctx context.Context, id string) error {
 		Relation:    identityRelation.Relation,
 	})
 	if err != nil {
-		logger.Err(err).Msg("failed to get relations")
+		logger.Error().Err(err).Msg("failed to get relations")
 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
 			return serrors.ScimErrorResourceNotFound(id)
 		}
@@ -56,7 +56,7 @@ func (u UsersResourceHandler) Delete(ctx context.Context, id string) error {
 			WithRelations: true,
 		})
 		if err != nil {
-			logger.Err(err).Msg("failed to delete identity")
+			logger.Error().Err(err).Msg("failed to delete identity")
 			return err
 		}
 	}
@@ -68,7 +68,7 @@ func (u UsersResourceHandler) Delete(ctx context.Context, id string) error {
 		WithRelations: true,
 	})
 	if err != nil {
-		logger.Err(err).Msg("failed to delete user")
+		logger.Error().Err(err).Msg("failed to delete user")
 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
 			return serrors.ScimErrorResourceNotFound(id)
 		}
@@ -81,7 +81,7 @@ func (u UsersResourceHandler) Delete(ctx context.Context, id string) error {
 		WithRelations: true,
 	})
 	if err != nil {
-		logger.Err(err).Msg("failed to delete user source object")
+		logger.Error().Err(err).Msg("failed to delete user source object")
 		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
 			return serrors.ScimErrorResourceNotFound(id)
 		}
