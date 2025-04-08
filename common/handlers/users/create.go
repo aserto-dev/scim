@@ -5,6 +5,7 @@ import (
 
 	dsw "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
 	"github.com/aserto-dev/scim/common/convert"
+	"github.com/aserto-dev/scim/common/model"
 	"github.com/elimity-com/scim"
 	serrors "github.com/elimity-com/scim/errors"
 )
@@ -17,7 +18,9 @@ func (u UsersResourceHandler) Create(ctx context.Context, attributes scim.Resour
 	logger := u.logger.With().Str("method", "Create").Str("userName", userName).Logger()
 	logger.Info().Msg("create user")
 	logger.Trace().Any("attributes", attributes).Msg("creating user")
-	user, err := convert.ResourceAttributesToUser(attributes)
+
+	var user *model.User
+	err := convert.Unmarshal(attributes, user)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to convert attributes to user")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax

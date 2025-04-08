@@ -19,7 +19,7 @@ func (g GroupResourceHandler) Patch(ctx context.Context, id string, operations [
 	logger := g.logger.With().Str("method", "Patch").Str("id", id).Logger()
 	logger.Info().Msg("patch group")
 
-	if !g.cfg.Groups() {
+	if !g.cfg.HasGroups() {
 		logger.Error().Msg("groups not enabled")
 		return scim.Resource{}, serrors.ScimErrorBadRequest("groups not enabled")
 	}

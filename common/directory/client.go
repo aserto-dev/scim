@@ -15,6 +15,7 @@ import (
 	"github.com/aserto-dev/scim/common/convert"
 	"github.com/elimity-com/scim"
 	serrors "github.com/elimity-com/scim/errors"
+	"github.com/hashicorp/go-multierror"
 	"github.com/rs/zerolog"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -75,23 +76,23 @@ func (s *Client) SetUser(ctx context.Context, userID string, data *msg.Transform
 		}
 	}
 
-	if relations != nil {
-		for _, rel := range relations.Results {
-			if !slices.Contains(addedIdentities, rel.ObjectId) {
-				logger.Trace().Str("id", rel.ObjectId).Msg("deleting identity")
-				_, err := s.client.Writer.DeleteObject(ctx, &dsw.DeleteObjectRequest{
-					ObjectType:    s.cfg.User.IdentityObjectType,
-					ObjectId:      rel.ObjectId,
-					WithRelations: true,
-				})
-				if err != nil {
-					return result, err
-				}
+	mErr := &multierror.Error{}
+	for _, rel := range relations.GetResults() {
+		if !slices.Contains(addedIdentities, rel.ObjectId) {
+			logger.Trace().Str("identity", rel.ObjectId).Msg("deleting identity")
+			_, err := s.client.Writer.DeleteObject(ctx, &dsw.DeleteObjectRequest{
+				ObjectType:    s.cfg.User.IdentityObjectType,
+				ObjectId:      rel.ObjectId,
+				WithRelations: true,
+			})
+			if err != nil {
+				mErr = multierror.Append(mErr, err)
+				logger.Error().Err(err).Str("identity", rel.ObjectId).Msg("failed to delete identity")
 			}
 		}
 	}
 
-	return result, nil
+	return result, mErr.ErrorOrNil()
 }
 
 func (s *Client) importObjects(ctx context.Context, objects []*dsc.Object, userAttributes scim.ResourceAttributes) (scim.Meta, []string, error) {
@@ -101,9 +102,9 @@ func (s *Client) importObjects(ctx context.Context, objects []*dsc.Object, userA
 
 	for _, object := range objects {
 		if object.Type == s.cfg.User.ObjectType {
-			var userProperties map[string]interface{}
+			var userProperties map[string]any
 			if object.Properties == nil {
-				userProperties = make(map[string]interface{})
+				userProperties = make(map[string]any)
 			} else {
 				userProperties = object.Properties.AsMap()
 			}

@@ -32,8 +32,8 @@ var ScimUser map[string]interface{} = map[string]interface{}{
 func TestTransform(t *testing.T) {
 	assert := require.New(t)
 
-	cfg := config.SCIMConfig{
-		User: &config.UserOptions{
+	cfg := config.Config{
+		User: &config.User{
 			IdentityObjectType: "identity",
 			IdentityRelation:   "identity#identitifier",
 			ObjectType:         "user",
@@ -69,8 +69,8 @@ func TestTransform(t *testing.T) {
 func TestTransformUserIdentifier(t *testing.T) {
 	assert := require.New(t)
 
-	cfg := config.SCIMConfig{
-		User: &config.UserOptions{
+	cfg := config.Config{
+		User: &config.User{
 			IdentityObjectType: "identity",
 			IdentityRelation:   "user#identitifier",
 			ObjectType:         "user",

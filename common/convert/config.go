@@ -33,13 +33,13 @@ func (t TemplateName) String() string {
 }
 
 type TransformConfig struct {
-	template TemplateName
-	*config.SCIMConfig
+	*config.Config
+	template           TemplateName
 	IdentityObjectType string `json:"identity_object_type,omitempty"`
 	IdentityRelation   string `json:"identity_relation,omitempty"`
 }
 
-func NewTransformConfig(cfg *config.SCIMConfig) (*TransformConfig, error) {
+func NewTransformConfig(cfg *config.Config) (*TransformConfig, error) {
 	template := Users
 
 	if cfg.Group != nil {
@@ -61,15 +61,15 @@ func NewTransformConfig(cfg *config.SCIMConfig) (*TransformConfig, error) {
 	}
 
 	return &TransformConfig{
-		SCIMConfig:         cfg,
+		Config:             cfg,
 		template:           template,
 		IdentityObjectType: object,
 		IdentityRelation:   relation,
 	}, nil
 }
 
-func (c *TransformConfig) Groups() bool {
-	return c.SCIMConfig.Group != nil
+func (c *TransformConfig) HasGroups() bool {
+	return c.Config.Group != nil
 }
 
 func (c *TransformConfig) ToTemplateVars() (map[string]interface{}, error) {
@@ -79,8 +79,7 @@ func (c *TransformConfig) ToTemplateVars() (map[string]interface{}, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal ScimConfig to json")
 	}
-	err = json.Unmarshal(cfg, &result)
-	if err != nil {
+	if err := json.Unmarshal(cfg, &result); err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal ScimConfig to map")
 	}
 
@@ -88,12 +87,7 @@ func (c *TransformConfig) ToTemplateVars() (map[string]interface{}, error) {
 }
 
 func (c *TransformConfig) GetTemplate() ([]byte, error) {
-	template, err := common.GetTemplateContent(c.template.String())
-	if err != nil {
-		return nil, err
-	}
-
-	return template, nil
+	return common.LoadTemplate(c.template.String())
 }
 
 func (c *TransformConfig) GetIdentityRelation(userID, identity string) (*dsc.Relation, error) {

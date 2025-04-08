@@ -8,14 +8,14 @@ import (
 
 var ErrInvalidConfig = errors.New("invalid config")
 
-type SCIMConfig struct {
-	User      *UserOptions  `json:"user"`
-	Group     *GroupOptions `json:"group"`
-	Role      *RoleOptions  `json:"role"`
-	Relations []*Relation   `json:"relations"`
+type Config struct {
+	User      *User       `json:"user"`
+	Group     *Group      `json:"group"`
+	Role      *Role       `json:"role"`
+	Relations []*Relation `json:"relations"`
 }
 
-type UserOptions struct {
+type User struct {
 	ObjectType         string            `json:"object_type"`
 	IdentityObjectType string            `json:"identity_object_type"`
 	IdentityRelation   string            `json:"identity_relation"`
@@ -24,12 +24,12 @@ type UserOptions struct {
 	ManagerRelation    string            `json:"manager_relation"`
 }
 
-type GroupOptions struct {
+type Group struct {
 	ObjectType          string `json:"object_type"`
 	GroupMemberRelation string `json:"group_member_relation"`
 	SourceObjectType    string `json:"source_object_type"`
 }
-type RoleOptions struct {
+type Role struct {
 	ObjectType   string `json:"object_type"`
 	RoleRelation string `json:"role_relation"`
 }
@@ -43,7 +43,7 @@ type Relation struct {
 	SubjectRelation string `json:"subject_relation"`
 }
 
-func (cfg *SCIMConfig) Validate() error {
+func (cfg *Config) Validate() error {
 	if cfg.User.ObjectType == "" {
 		return errors.Wrap(ErrInvalidConfig, "scim.user_object_type is required")
 	}
@@ -52,17 +52,16 @@ func (cfg *SCIMConfig) Validate() error {
 	}
 	if cfg.User.IdentityRelation == "" {
 		return errors.Wrap(ErrInvalidConfig, "scim.identity_relation is required")
-	} else {
-		object, relation, found := strings.Cut(cfg.User.IdentityRelation, "#")
-		if !found {
-			return errors.Wrap(ErrInvalidConfig, "identity relation must be in the format object#relation")
-		}
-		if object != cfg.User.IdentityObjectType && object != cfg.User.ObjectType {
-			return errors.Wrapf(ErrInvalidConfig, "identity relation object type [%s] doesn't match user or identity type", object)
-		}
-		if relation == "" {
-			return errors.Wrap(ErrInvalidConfig, "identity relation relation is required")
-		}
+	}
+	object, relation, found := strings.Cut(cfg.User.IdentityRelation, "#")
+	if !found {
+		return errors.Wrap(ErrInvalidConfig, "identity relation must be in the format object#relation")
+	}
+	if object != cfg.User.IdentityObjectType && object != cfg.User.ObjectType {
+		return errors.Wrapf(ErrInvalidConfig, "identity relation object type [%s] doesn't match user or identity type", object)
+	}
+	if relation == "" {
+		return errors.Wrap(ErrInvalidConfig, "identity relation relation is required")
 	}
 	if cfg.Group != nil {
 		if cfg.Group.ObjectType == "" {

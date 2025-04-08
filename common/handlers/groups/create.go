@@ -5,6 +5,7 @@ import (
 
 	dsw "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
 	"github.com/aserto-dev/scim/common/convert"
+	"github.com/aserto-dev/scim/common/model"
 	"github.com/elimity-com/scim"
 	serrors "github.com/elimity-com/scim/errors"
 )
@@ -18,7 +19,8 @@ func (g GroupResourceHandler) Create(ctx context.Context, attributes scim.Resour
 	logger.Info().Msg("create group")
 	logger.Trace().Any("attributes", attributes).Msg("creating group")
 
-	group, err := convert.ResourceAttributesToGroup(attributes)
+	var group *model.Group
+	err := convert.Unmarshal(attributes, group)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to convert attributes to group")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax

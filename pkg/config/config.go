@@ -27,7 +27,7 @@ type Config struct {
 		Auth          AuthConfig       `json:"auth"`
 	} `json:"server"`
 
-	SCIM config.SCIMConfig `json:"scim"`
+	SCIM config.Config `json:"scim"`
 }
 
 type AuthConfig struct {
