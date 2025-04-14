@@ -61,7 +61,7 @@ func (cfg *Config) Validate() error {
 		return errors.Wrapf(ErrInvalidConfig, "identity relation object type [%s] doesn't match user or identity type", object)
 	}
 	if relation == "" {
-		return errors.Wrap(ErrInvalidConfig, "identity relation relation is required")
+		return errors.Wrap(ErrInvalidConfig, "identity relation is required")
 	}
 	if cfg.Group != nil {
 		if cfg.Group.ObjectType == "" {

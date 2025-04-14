@@ -3,15 +3,14 @@ package groups
 import (
 	"context"
 
-	cerr "github.com/aserto-dev/errors"
 	dsr "github.com/aserto-dev/go-directory/aserto/directory/reader/v3"
 	dsw "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
-	"github.com/aserto-dev/go-directory/pkg/derr"
 	"github.com/aserto-dev/scim/common"
 	"github.com/aserto-dev/scim/common/convert"
 	"github.com/elimity-com/scim"
 	serrors "github.com/elimity-com/scim/errors"
-	"github.com/pkg/errors"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -31,7 +30,8 @@ func (g GroupResourceHandler) Patch(ctx context.Context, id string, operations [
 	})
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to get group")
-		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
+		st, ok := status.FromError(err)
+		if ok && st.Code() == codes.NotFound {
 			return scim.Resource{}, serrors.ScimErrorResourceNotFound(id)
 		}
 		return scim.Resource{}, err

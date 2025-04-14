@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"time"
 
 	"github.com/aserto-dev/scim/pkg/app"
 	"github.com/aserto-dev/scim/pkg/version"
@@ -32,7 +35,28 @@ var cmdRun = &cobra.Command{
 	Use:   "run [args]",
 	Short: "Start SCIM service",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return app.Run(flagConfigPath, os.Stdout, os.Stderr)
+		srv, err := app.NewSCIMServer(flagConfigPath, os.Stdout, os.Stderr)
+		if err != nil {
+			return err
+		}
+
+		go func() {
+			if err := srv.Run(); err != nil {
+				log.Printf("Error running SCIM server: %v", err)
+			}
+		}()
+
+		stop := make(chan os.Signal, 1)
+		signal.Notify(stop, os.Interrupt, os.Kill)
+		<-stop
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(ctx); err != nil {
+			return err
+		}
+		log.Println("SCIM server stopped")
+		return nil
 	},
 }
 

@@ -19,7 +19,7 @@ func (u UsersResourceHandler) Create(ctx context.Context, attributes scim.Resour
 	logger.Info().Msg("create user")
 	logger.Trace().Any("attributes", attributes).Msg("creating user")
 
-	var user *model.User
+	user := &model.User{}
 	err := convert.Unmarshal(attributes, user)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to convert attributes to user")

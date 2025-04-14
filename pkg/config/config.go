@@ -93,6 +93,7 @@ func NewConfig(configPath string) (*Config, error) { // nolint // function will 
 			return nil, errors.Wrapf(err, "failed to read config file '%s'", file)
 		}
 	}
+
 	v.AutomaticEnv()
 
 	cfg := new(Config)

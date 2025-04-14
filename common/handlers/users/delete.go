@@ -3,12 +3,11 @@ package users
 import (
 	"context"
 
-	cerr "github.com/aserto-dev/errors"
 	dsr "github.com/aserto-dev/go-directory/aserto/directory/reader/v3"
 	dsw "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
-	"github.com/aserto-dev/go-directory/pkg/derr"
 	serrors "github.com/elimity-com/scim/errors"
-	"github.com/pkg/errors"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func (u UsersResourceHandler) Delete(ctx context.Context, id string) error {
@@ -29,7 +28,8 @@ func (u UsersResourceHandler) Delete(ctx context.Context, id string) error {
 	})
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to get relations")
-		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
+		st, ok := status.FromError(err)
+		if ok && st.Code() == codes.NotFound {
 			return serrors.ScimErrorResourceNotFound(id)
 		}
 		return err
@@ -69,7 +69,8 @@ func (u UsersResourceHandler) Delete(ctx context.Context, id string) error {
 	})
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to delete user")
-		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
+		st, ok := status.FromError(err)
+		if ok && st.Code() == codes.NotFound {
 			return serrors.ScimErrorResourceNotFound(id)
 		}
 	}
@@ -82,7 +83,8 @@ func (u UsersResourceHandler) Delete(ctx context.Context, id string) error {
 	})
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to delete user source object")
-		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrObjectNotFound) {
+		st, ok := status.FromError(err)
+		if ok && st.Code() == codes.NotFound {
 			return serrors.ScimErrorResourceNotFound(id)
 		}
 	}

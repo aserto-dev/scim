@@ -19,7 +19,7 @@ func (g GroupResourceHandler) Create(ctx context.Context, attributes scim.Resour
 	logger.Info().Msg("create group")
 	logger.Trace().Any("attributes", attributes).Msg("creating group")
 
-	var group *model.Group
+	group := &model.Group{}
 	err := convert.Unmarshal(attributes, group)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to convert attributes to group")

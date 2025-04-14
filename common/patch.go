@@ -180,6 +180,7 @@ func ReplaceInInterfaceArray(value []interface{}, op scim.PatchOperation) ([]int
 		if originalValue, ok := value[index].(map[string]interface{}); ok {
 			originalValue[*op.Path.SubAttribute] = op.Value
 			value[index] = originalValue
+
 			return value, nil
 		} else {
 			return nil, serrors.ScimErrorInvalidPath
@@ -222,11 +223,13 @@ func AddProperty(objectProps scim.ResourceAttributes, op scim.PatchOperation) (s
 				if objectProps[op.Path.AttributePath.AttributeName] == nil {
 					objectProps[op.Path.AttributePath.AttributeName] = make([]interface{}, 0)
 				}
+
 				properties := val
 				attrProps, ok := objectProps[op.Path.AttributePath.AttributeName].([]interface{})
 				if !ok {
 					return nil, serrors.ScimErrorInvalidPath
 				}
+
 				objectProps[op.Path.AttributePath.AttributeName] = append(attrProps, properties)
 			}
 		}

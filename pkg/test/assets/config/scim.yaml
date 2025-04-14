@@ -1,0 +1,36 @@
+---
+logging:
+  log_level: trace
+server:
+  listen_address: ":8081"
+  auth:
+    basic:
+      enabled: true
+      username: scim
+      password: scim
+directory:
+  address: ""
+  no_tls: true
+scim:
+  user:
+    object_type: user
+    identity_object_type: identity
+    identity_relation: user#identifier
+    property_mapping: 
+      enabled: active
+    source_object_type: scim_user
+    manager_relation: manager
+  group:
+    object_type: group
+    group_member_relation: member
+    source_object_type: scim_group
+  role:
+    object_type: group
+    role_relation: member
+  relations:
+    - object_id: system
+      object_type: system
+      relation: admin
+      subject_id: aserto-admin
+      subject_type: group
+      subject_relation: member

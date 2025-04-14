@@ -1,8 +1,10 @@
 package app
 
 import (
+	"context"
 	"crypto/sha256"
 	"crypto/subtle"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -20,28 +22,44 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func Run(cfgPath string, logWriter logger.Writer, errWriter logger.ErrWriter) error {
+type SCIMServer struct {
+	server   *http.Server
+	log      *zerolog.Logger
+	cfg      *config.Config
+	dsClient *ds.Client
+}
+
+func NewSCIMServer(cfgPath string, logWriter logger.Writer, errWriter logger.ErrWriter) (*SCIMServer, error) {
 	cfg, err := config.NewConfig(cfgPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	scimLogger, err := logger.NewLogger(logWriter, errWriter, &cfg.Logging)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	dsClient, err := directory.GetDirectoryClient(&cfg.Directory)
+	return &SCIMServer{
+		log: scimLogger,
+		cfg: cfg,
+	}, nil
+}
+
+func (s *SCIMServer) Run() error {
+	dsClient, err := directory.GetDirectoryClient(&s.cfg.Directory)
 	if err != nil {
 		return err
 	}
 
-	transformCfg, err := convert.NewTransformConfig(&cfg.SCIM)
+	s.dsClient = dsClient
+
+	transformCfg, err := convert.NewTransformConfig(&s.cfg.SCIM)
 	if err != nil {
 		return err
 	}
 
-	userHandler, err := userHandler(scimLogger, transformCfg, dsClient)
+	userHandler, err := userHandler(s.log, transformCfg, dsClient)
 	if err != nil {
 		return err
 	}
@@ -58,7 +76,7 @@ func Run(cfgPath string, logWriter logger.Writer, errWriter logger.ErrWriter) er
 		Handler: userHandler,
 	}
 
-	groupHandler, err := groupHandler(scimLogger, transformCfg, dsClient)
+	groupHandler, err := groupHandler(s.log, transformCfg, dsClient)
 	if err != nil {
 		return err
 	}
@@ -97,15 +115,15 @@ func Run(cfgPath string, logWriter logger.Writer, errWriter logger.ErrWriter) er
 	}
 
 	app := new(application)
-	app.cfg = &cfg.Server.Auth
+	app.cfg = &s.cfg.Server.Auth
 
-	tlsServerConfig, err := cfg.Server.Certs.ServerConfig()
+	tlsServerConfig, err := s.cfg.Server.Certs.ServerConfig()
 	if err != nil {
 		return err
 	}
 
 	srv := &http.Server{
-		Addr:         cfg.Server.ListenAddress,
+		Addr:         s.cfg.Server.ListenAddress,
 		Handler:      app.auth(server.ServeHTTP),
 		TLSConfig:    tlsServerConfig,
 		IdleTimeout:  time.Minute,
@@ -113,11 +131,34 @@ func Run(cfgPath string, logWriter logger.Writer, errWriter logger.ErrWriter) er
 		WriteTimeout: 30 * time.Second,
 	}
 
-	if cfg.Server.Certs.HasCert() {
+	s.server = srv
+	s.log.Info().Str("address", s.cfg.Server.ListenAddress).Msg("Starting SCIM server")
+	if s.cfg.Server.Certs.HasCert() {
 		return srv.ListenAndServeTLS("", "")
 	}
 
+	fmt.Println("Starting SCIM server without TLS")
+
 	return srv.ListenAndServe()
+}
+
+func (s *SCIMServer) Shutdown(ctx context.Context) error {
+	if s.server != nil {
+		s.log.Info().Msg("Shutting down SCIM server")
+		return s.server.Shutdown(ctx)
+	}
+	s.server = nil
+
+	if s.dsClient != nil {
+		s.log.Info().Msg("Closing directory client connection")
+		if err := s.dsClient.Close(); err != nil {
+			s.log.Error().Err(err).Msg("Failed to close directory client")
+		}
+	}
+	s.dsClient = nil
+	s.log.Info().Msg("SCIM server shutdown complete")
+
+	return nil
 }
 
 func userHandler(scimLogger *zerolog.Logger, cfg *convert.TransformConfig, dsClient *ds.Client) (scim.ResourceHandler, error) {
