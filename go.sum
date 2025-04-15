@@ -30,8 +30,6 @@ github.com/aserto-dev/header v0.0.11 h1:Qx7lWzfq29h0OgaJQ8W9KD+/q9q14yOwKBFmD0vi
 github.com/aserto-dev/header v0.0.11/go.mod h1:yTO0YPKVTlUTcP0ecQ/7qKs6l6RvDS0ac5l+S1BGWBs=
 github.com/aserto-dev/logger v0.0.9 h1:QH11l8937Sw+GAe2yvgpoLg70fqQvPrEufkXAmDUk0g=
 github.com/aserto-dev/logger v0.0.9/go.mod h1:mMXq/bhdIKoOVsIZ2zJOqgjcc/jR2x14FhU0St/8AVQ=
-github.com/aserto-dev/topaz v0.32.58 h1:ffw6MPHhfMn268z+NqmFmBR6fqrr4uHKOCiqhxWdGi4=
-github.com/aserto-dev/topaz v0.32.58/go.mod h1:Llk5TuO8XkydJLiiHRVVp+oJjptr4e1+aSe/8ysOmlY=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
 github.com/containerd/log v0.1.0 h1:TCJt7ioM2cr/tfR8GPbGf9/VRAX8D2B4PjzCpfX540I=

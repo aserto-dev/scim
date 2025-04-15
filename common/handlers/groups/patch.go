@@ -31,14 +31,16 @@ func (g GroupResourceHandler) Patch(ctx context.Context, id string, operations [
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to get group")
 		st, ok := status.FromError(err)
+
 		if ok && st.Code() == codes.NotFound {
 			return scim.Resource{}, serrors.ScimErrorResourceNotFound(id)
 		}
+
 		return scim.Resource{}, err
 	}
 
 	converter := convert.NewConverter(g.cfg)
-	attr := converter.ObjectToResourceAttributes(getObjResp.Result)
+	attr := converter.ObjectToResourceAttributes(getObjResp.GetResult())
 
 	for _, op := range operations {
 		switch op.Op {
@@ -69,28 +71,31 @@ func (g GroupResourceHandler) Patch(ctx context.Context, id string, operations [
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
 
-	groupObj := getObjResp.Result
+	groupObj := getObjResp.GetResult()
 	props, err := structpb.NewStruct(attr)
+
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to convert attributes to struct")
 		return scim.Resource{}, err
 	}
+
 	groupObj.Properties = props
 	sourceGroupResp, err := g.dirClient.DS().Writer.SetObject(ctx, &dsw.SetObjectRequest{
 		Object: groupObj,
 	})
+
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to replace group")
 		return scim.Resource{}, err
 	}
 
-	meta, err := g.dirClient.SetGroup(ctx, getObjResp.Result.Id, transformResult)
+	meta, err := g.dirClient.SetGroup(ctx, getObjResp.GetResult().GetId(), transformResult)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to sync group")
 		return scim.Resource{}, err
 	}
 
-	resource := converter.ObjectToResource(sourceGroupResp.Result, meta)
+	resource := converter.ObjectToResource(sourceGroupResp.GetResult(), meta)
 
 	logger.Trace().Any("response", resource).Msg("group patched")
 

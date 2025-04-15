@@ -17,6 +17,8 @@ import (
 	serrors "github.com/elimity-com/scim/errors"
 	"github.com/hashicorp/go-multierror"
 	"github.com/rs/zerolog"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -41,53 +43,62 @@ func (s *Client) DS() *ds.Client {
 func (s *Client) SetUser(ctx context.Context, userID string, data *msg.Transform, userAttributes scim.ResourceAttributes) (scim.Meta, error) {
 	logger := s.logger.With().Str("method", "SetUser").Str("id", userID).Logger()
 	logger.Trace().Msg("set user")
+
 	idRelation, err := s.cfg.GetIdentityRelation(userID, "")
+
 	if err != nil {
 		return scim.Meta{}, err
 	}
 
 	relations, err := s.client.Reader.GetRelations(ctx, &dsr.GetRelationsRequest{
-		ObjectType:               idRelation.ObjectType,
-		ObjectId:                 idRelation.ObjectId,
-		Relation:                 idRelation.Relation,
-		SubjectType:              idRelation.SubjectType,
-		SubjectId:                idRelation.SubjectId,
+		ObjectType:               idRelation.GetObjectType(),
+		ObjectId:                 idRelation.GetObjectId(),
+		Relation:                 idRelation.GetRelation(),
+		SubjectType:              idRelation.GetSubjectType(),
+		SubjectId:                idRelation.GetSubjectId(),
 		WithObjects:              false,
 		WithEmptySubjectRelation: true,
 	})
-	if err != nil && !errors.Is(cerr.UnwrapAsertoError(err), derr.ErrRelationNotFound) {
-		return scim.Meta{}, err
+	if err != nil {
+		st, ok := status.FromError(err)
+
+		if ok && st.Code() != codes.NotFound {
+			return scim.Meta{}, err
+		}
 	}
 
-	result, addedIdentities, err := s.importObjects(ctx, data.Objects, userAttributes)
+	result, addedIdentities, err := s.importObjects(ctx, data.GetObjects(), userAttributes)
 	if err != nil {
 		return result, err
 	}
 
 	logger.Trace().Any("identities", addedIdentities).Msg("added identities")
 
-	for _, relation := range data.Relations {
+	for _, relation := range data.GetRelations() {
 		logger.Trace().Any("relation", relation).Msg("setting relation")
 		_, err := s.client.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
 			Relation: relation,
 		})
+
 		if err != nil {
 			return result, err
 		}
 	}
 
 	mErr := &multierror.Error{}
+
 	for _, rel := range relations.GetResults() {
-		if !slices.Contains(addedIdentities, rel.ObjectId) {
-			logger.Trace().Str("identity", rel.ObjectId).Msg("deleting identity")
+		if !slices.Contains(addedIdentities, rel.GetObjectId()) {
+			logger.Trace().Str("identity", rel.GetObjectId()).Msg("deleting identity")
 			_, err := s.client.Writer.DeleteObject(ctx, &dsw.DeleteObjectRequest{
 				ObjectType:    s.cfg.User.IdentityObjectType,
-				ObjectId:      rel.ObjectId,
+				ObjectId:      rel.GetObjectId(),
 				WithRelations: true,
 			})
+
 			if err != nil {
 				mErr = multierror.Append(mErr, err)
-				logger.Error().Err(err).Str("identity", rel.ObjectId).Msg("failed to delete identity")
+				logger.Error().Err(err).Str("identity", rel.GetObjectId()).Msg("failed to delete identity")
 			}
 		}
 	}
@@ -97,25 +108,30 @@ func (s *Client) SetUser(ctx context.Context, userID string, data *msg.Transform
 
 func (s *Client) importObjects(ctx context.Context, objects []*dsc.Object, userAttributes scim.ResourceAttributes) (scim.Meta, []string, error) {
 	var err error
+
 	result := scim.Meta{}
 	addedIdentities := make([]string, 0)
 
 	for _, object := range objects {
-		if object.Type == s.cfg.User.ObjectType {
+		if object.GetType() == s.cfg.User.ObjectType {
 			var userProperties map[string]any
-			if object.Properties == nil {
+			if object.GetProperties() == nil {
 				userProperties = make(map[string]any)
 			} else {
-				userProperties = object.Properties.AsMap()
+				userProperties = object.GetProperties().AsMap()
 			}
+
 			for key, value := range s.cfg.User.PropertyMapping {
 				userProperties[key] = userAttributes[value]
 			}
+
 			object.Properties, err = structpb.NewStruct(userProperties)
+
 			if err != nil {
 				return result, addedIdentities, err
 			}
 		}
+
 		resp, err := s.client.Writer.SetObject(ctx, &dsw.SetObjectRequest{
 			Object: object,
 		})
@@ -123,24 +139,25 @@ func (s *Client) importObjects(ctx context.Context, objects []*dsc.Object, userA
 			if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrAlreadyExists) {
 				return result, addedIdentities, serrors.ScimErrorUniqueness
 			}
+
 			return result, addedIdentities, err
 		}
 
-		if resp.Result.Type == s.cfg.User.IdentityObjectType {
-			addedIdentities = append(addedIdentities, resp.Result.Id)
+		if resp.GetResult().GetType() == s.cfg.User.IdentityObjectType {
+			addedIdentities = append(addedIdentities, resp.GetResult().GetId())
 		}
 
-		if object.Type == s.cfg.User.ObjectType {
-			err = s.setRelations(ctx, resp.Result.Id, resp.Result.Type)
+		if object.GetType() == s.cfg.User.ObjectType {
+			err = s.setRelations(ctx, resp.GetResult().GetId(), resp.GetResult().GetType())
 			if err != nil {
 				return result, addedIdentities, err
 			}
 
-			createdAt := resp.Result.CreatedAt.AsTime()
-			updatedAt := resp.Result.UpdatedAt.AsTime()
+			createdAt := resp.GetResult().GetCreatedAt().AsTime()
+			updatedAt := resp.GetResult().GetUpdatedAt().AsTime()
 			result.Created = &createdAt
 			result.LastModified = &updatedAt
-			result.Version = resp.Result.Etag
+			result.Version = resp.GetResult().GetEtag()
 		}
 	}
 
@@ -150,47 +167,55 @@ func (s *Client) importObjects(ctx context.Context, objects []*dsc.Object, userA
 func (s *Client) DeleteUser(ctx context.Context, userID string) error {
 	logger := s.logger.With().Str("method", "DeleteUser").Str("id", userID).Logger()
 	logger.Trace().Msg("delete user")
+
 	identityRelation, err := s.cfg.GetIdentityRelation(userID, "")
+
 	if err != nil {
 		return err
 	}
 
 	relations, err := s.client.Reader.GetRelations(ctx, &dsr.GetRelationsRequest{
-		SubjectType: identityRelation.SubjectType,
-		SubjectId:   identityRelation.SubjectId,
-		ObjectType:  identityRelation.ObjectType,
-		ObjectId:    identityRelation.ObjectId,
-		Relation:    identityRelation.Relation,
+		SubjectType: identityRelation.GetSubjectType(),
+		SubjectId:   identityRelation.GetSubjectId(),
+		ObjectType:  identityRelation.GetObjectType(),
+		ObjectId:    identityRelation.GetObjectId(),
+		Relation:    identityRelation.GetRelation(),
 	})
 	if err != nil {
-		if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrNotFound) {
+		st, ok := status.FromError(err)
+
+		if ok && st.Code() == codes.NotFound {
 			return serrors.ScimErrorResourceNotFound(userID)
 		}
 	}
 
-	for _, v := range relations.Results {
+	for _, v := range relations.GetResults() {
 		var objectID string
-		switch v.ObjectType {
+
+		switch v.GetObjectType() {
 		case s.cfg.User.IdentityObjectType:
-			objectID = v.ObjectId
+			objectID = v.GetObjectId()
 		case s.cfg.User.ObjectType:
-			objectID = v.SubjectId
+			objectID = v.GetSubjectId()
 		default:
 			return serrors.ScimErrorBadRequest("unexpected object type in identity relation")
 		}
 
-		logger.Trace().Str("id", v.ObjectId).Msg("deleting identity")
+		logger.Trace().Str("id", v.GetObjectId()).Msg("deleting identity")
+
 		_, err = s.client.Writer.DeleteObject(ctx, &dsw.DeleteObjectRequest{
 			ObjectId:      objectID,
 			ObjectType:    s.cfg.User.IdentityObjectType,
 			WithRelations: true,
 		})
+
 		if err != nil {
 			return err
 		}
 	}
 
 	logger.Trace().Msg("deleting user")
+
 	_, err = s.client.Writer.DeleteObject(ctx, &dsw.DeleteObjectRequest{
 		ObjectType:    s.cfg.User.ObjectType,
 		ObjectId:      userID,
@@ -203,6 +228,7 @@ func (s *Client) DeleteUser(ctx context.Context, userID string) error {
 func (s *Client) SetGroup(ctx context.Context, groupID string, data *msg.Transform) (scim.Meta, error) {
 	logger := s.logger.With().Str("method", "SetGroup").Str("id", groupID).Logger()
 	logger.Trace().Msg("set group")
+
 	if s.cfg.Group == nil {
 		logger.Warn().Msg("groups not enabled")
 		return scim.Meta{}, nil
@@ -215,63 +241,72 @@ func (s *Client) SetGroup(ctx context.Context, groupID string, data *msg.Transfo
 		WithObjects:              false,
 		WithEmptySubjectRelation: true,
 	})
-	if err != nil && !errors.Is(cerr.UnwrapAsertoError(err), derr.ErrRelationNotFound) {
-		return scim.Meta{}, err
+	if err != nil {
+		st, ok := status.FromError(err)
+
+		if ok && st.Code() != codes.NotFound {
+			return scim.Meta{}, err
+		}
 	}
 
 	addedMembers := make([]string, 0)
-
 	result := scim.Meta{}
-	for _, object := range data.Objects {
+
+	for _, object := range data.GetObjects() {
 		logger.Trace().Any("object", object).Msg("setting object")
 		resp, err := s.client.Writer.SetObject(ctx, &dsw.SetObjectRequest{
 			Object: object,
 		})
+
 		if err != nil {
 			if errors.Is(cerr.UnwrapAsertoError(err), derr.ErrAlreadyExists) {
 				return result, serrors.ScimErrorUniqueness
 			}
+
 			return result, err
 		}
 
-		if object.Type == s.cfg.Group.ObjectType {
-			err = s.setRelations(ctx, resp.Result.Id, resp.Result.Type)
+		if object.GetType() == s.cfg.Group.ObjectType {
+			err = s.setRelations(ctx, resp.GetResult().GetId(), resp.GetResult().GetType())
 			if err != nil {
 				return result, err
 			}
 
-			createdAt := resp.Result.CreatedAt.AsTime()
-			updatedAt := resp.Result.UpdatedAt.AsTime()
+			createdAt := resp.GetResult().GetCreatedAt().AsTime()
+			updatedAt := resp.GetResult().GetUpdatedAt().AsTime()
 			result.Created = &createdAt
 			result.LastModified = &updatedAt
-			result.Version = resp.Result.Etag
+			result.Version = resp.GetResult().GetEtag()
 		}
 	}
 
-	for _, relation := range data.Relations {
-		if relation.Relation == s.cfg.Group.GroupMemberRelation {
-			addedMembers = append(addedMembers, relation.SubjectId)
+	for _, relation := range data.GetRelations() {
+		if relation.GetRelation() == s.cfg.Group.GroupMemberRelation {
+			addedMembers = append(addedMembers, relation.GetSubjectId())
 		}
+
 		logger.Trace().Any("relation", relation).Msg("setting relation")
 		_, err := s.client.Writer.SetRelation(ctx, &dsw.SetRelationRequest{
 			Relation: relation,
 		})
+
 		if err != nil {
 			return result, err
 		}
 	}
 
 	if relations != nil {
-		for _, rel := range relations.Results {
-			if !slices.Contains(addedMembers, rel.SubjectId) {
-				logger.Trace().Str("id", rel.SubjectId).Msg("deleting relation")
+		for _, rel := range relations.GetResults() {
+			if !slices.Contains(addedMembers, rel.GetSubjectId()) {
+				logger.Trace().Str("id", rel.GetSubjectId()).Msg("deleting relation")
 				_, err := s.client.Writer.DeleteRelation(ctx, &dsw.DeleteRelationRequest{
 					ObjectType:  s.cfg.Group.ObjectType,
 					ObjectId:    groupID,
 					Relation:    s.cfg.Group.GroupMemberRelation,
-					SubjectId:   rel.SubjectId,
-					SubjectType: rel.SubjectType,
+					SubjectId:   rel.GetSubjectId(),
+					SubjectType: rel.GetSubjectType(),
 				})
+
 				if err != nil {
 					return result, err
 				}
@@ -285,6 +320,7 @@ func (s *Client) SetGroup(ctx context.Context, groupID string, data *msg.Transfo
 func (s *Client) DeleteGroup(ctx context.Context, groupID string) error {
 	logger := s.logger.With().Str("method", "DeleteGroup").Str("id", groupID).Logger()
 	logger.Trace().Msg("delete group")
+
 	_, err := s.client.Writer.DeleteObject(ctx, &dsw.DeleteObjectRequest{
 		ObjectType:    s.cfg.Group.SourceObjectType,
 		ObjectId:      groupID,
@@ -322,5 +358,6 @@ func (s *Client) setRelations(ctx context.Context, subjID, subjType string) erro
 			}
 		}
 	}
+
 	return nil
 }

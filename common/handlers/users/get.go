@@ -26,18 +26,20 @@ func (u UsersResourceHandler) Get(ctx context.Context, id string) (scim.Resource
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to get user")
 		st, ok := status.FromError(err)
+
 		if ok && st.Code() == codes.NotFound {
 			return scim.Resource{}, serrors.ScimErrorResourceNotFound(id)
 		}
+
 		return scim.Resource{}, err
 	}
 
-	createdAt := resp.Result.CreatedAt.AsTime()
-	updatedAt := resp.Result.UpdatedAt.AsTime()
-	resource := converter.ObjectToResource(resp.Result, scim.Meta{
+	createdAt := resp.GetResult().GetCreatedAt().AsTime()
+	updatedAt := resp.GetResult().GetUpdatedAt().AsTime()
+	resource := converter.ObjectToResource(resp.GetResult(), scim.Meta{
 		Created:      &createdAt,
 		LastModified: &updatedAt,
-		Version:      resp.Result.Etag,
+		Version:      resp.GetResult().GetEtag(),
 	})
 
 	logger.Trace().Any("user", resource).Msg("user retrieved")
@@ -69,15 +71,15 @@ func (u UsersResourceHandler) GetAll(ctx context.Context, params scim.ListReques
 			return scim.Page{}, err
 		}
 
-		pageToken = resp.Page.NextToken
+		pageToken = resp.GetPage().GetNextToken()
 
-		for _, v := range resp.Results {
-			createdAt := v.CreatedAt.AsTime()
-			updatedAt := v.UpdatedAt.AsTime()
+		for _, v := range resp.GetResults() {
+			createdAt := v.GetCreatedAt().AsTime()
+			updatedAt := v.GetUpdatedAt().AsTime()
 			resource := converter.ObjectToResource(v, scim.Meta{
 				Created:      &createdAt,
 				LastModified: &updatedAt,
-				Version:      v.Etag,
+				Version:      v.GetEtag(),
 			})
 
 			if params.FilterValidator == nil || params.FilterValidator.PassesFilter(resource.Attributes) == nil {
@@ -85,6 +87,7 @@ func (u UsersResourceHandler) GetAll(ctx context.Context, params scim.ListReques
 					skipIndex++
 					continue
 				}
+
 				resources = append(resources, resource)
 			}
 

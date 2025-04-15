@@ -29,13 +29,15 @@ func (u UsersResourceHandler) Patch(ctx context.Context, id string, operations [
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to get user")
 		st, ok := status.FromError(err)
+
 		if ok && st.Code() == codes.NotFound {
 			return scim.Resource{}, serrors.ScimErrorResourceNotFound(id)
 		}
+
 		return scim.Resource{}, err
 	}
 
-	attr := converter.ObjectToResourceAttributes(getObjResp.Result)
+	attr := converter.ObjectToResourceAttributes(getObjResp.GetResult())
 
 	for _, op := range operations {
 		switch op.Op {
@@ -71,28 +73,31 @@ func (u UsersResourceHandler) Patch(ctx context.Context, id string, operations [
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
 
-	userObj := getObjResp.Result
+	userObj := getObjResp.GetResult()
 	props, err := structpb.NewStruct(attr)
+
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to convert resource attributes to struct")
 		return scim.Resource{}, err
 	}
+
 	userObj.Properties = props
 	sourceUserResp, err := u.dirClient.DS().Writer.SetObject(ctx, &dsw.SetObjectRequest{
 		Object: userObj,
 	})
+
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to replace user")
 		return scim.Resource{}, err
 	}
 
-	meta, err := u.dirClient.SetUser(ctx, getObjResp.Result.Id, transformResult, attr)
+	meta, err := u.dirClient.SetUser(ctx, getObjResp.GetResult().GetId(), transformResult, attr)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to sync user")
 		return scim.Resource{}, err
 	}
 
-	resource := converter.ObjectToResource(sourceUserResp.Result, meta)
+	resource := converter.ObjectToResource(sourceUserResp.GetResult(), meta)
 
 	logger.Trace().Any("response", resource).Msg("user patched")
 

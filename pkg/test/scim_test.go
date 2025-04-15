@@ -2,7 +2,6 @@ package scim_test
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	assets_test "github.com/aserto-dev/scim/pkg/test/assets"
@@ -15,7 +14,7 @@ import (
 func TestScim(t *testing.T) {
 	// Setup test containers
 	tst := common_test.TestSetup(t)
-	fmt.Println("Directory address:", tst.DirectoryClient)
+
 	e := httpexpect.Default(t, "http://localhost:8081")
 
 	// Create user for Rick

@@ -23,5 +23,6 @@ func (g GroupResourceHandler) Replace(ctx context.Context, id string, attributes
 	}
 
 	logger.Trace().Any("resource", resource).Msg("group replaced")
+
 	return resource, nil
 }

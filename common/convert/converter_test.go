@@ -8,14 +8,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var ScimUser map[string]interface{} = map[string]interface{}{
+var ScimUser map[string]any = map[string]any{
 	"schemas":  []string{"urn:ietf:params:scim:schemas:core:2.0:User"},
 	"userName": "foobar",
-	"name": map[string]interface{}{
+	"name": map[string]any{
 		"givenName":  "foo",
 		"familyName": "bar",
 	},
-	"emails": []map[string]interface{}{
+	"emails": []map[string]any{
 		{
 			"primary": true,
 			"value":   "foo@bar.com",
@@ -25,7 +25,7 @@ var ScimUser map[string]interface{} = map[string]interface{}{
 	"displayName": "foo bar",
 	"externalId":  "fooooo",
 	"locale":      "en-US",
-	"groups":      []interface{}{},
+	"groups":      []any{},
 	"active":      true,
 }
 
@@ -44,26 +44,27 @@ func TestTransform(t *testing.T) {
 
 	sCfg, err := convert.NewTransformConfig(&cfg)
 	assert.NoError(err)
+
 	cvt := convert.NewConverter(sCfg)
 	msg, err := cvt.TransformResource(ScimUser, "user")
 	assert.NoError(err)
 
 	assert.NotNil(msg)
-	assert.NotEmpty(msg.Objects)
-	assert.NotEmpty(msg.Relations)
-	assert.Len(msg.Relations, 3)
+	assert.NotEmpty(msg.GetObjects())
+	assert.NotEmpty(msg.GetRelations())
+	assert.Len(msg.GetRelations(), 3)
 
-	assert.Equal("foo@bar.com", msg.Relations[1].ObjectId)
-	assert.Equal("identity", msg.Relations[1].ObjectType)
-	assert.Equal("identitifier", msg.Relations[1].Relation)
-	assert.Equal("foobar", msg.Relations[1].SubjectId)
-	assert.Equal("user", msg.Relations[1].SubjectType)
+	assert.Equal("foo@bar.com", msg.GetRelations()[1].GetObjectId())
+	assert.Equal("identity", msg.GetRelations()[1].GetObjectType())
+	assert.Equal("identitifier", msg.GetRelations()[1].GetRelation())
+	assert.Equal("foobar", msg.GetRelations()[1].GetSubjectId())
+	assert.Equal("user", msg.GetRelations()[1].GetSubjectType())
 
-	assert.Equal("foobar", msg.Relations[0].SubjectId)
-	assert.Equal("user", msg.Relations[0].SubjectType)
+	assert.Equal("foobar", msg.GetRelations()[0].GetSubjectId())
+	assert.Equal("user", msg.GetRelations()[0].GetSubjectType())
 
-	assert.Equal("fooooo", msg.Relations[2].ObjectId)
-	assert.Equal("identity", msg.Relations[2].ObjectType)
+	assert.Equal("fooooo", msg.GetRelations()[2].GetObjectId())
+	assert.Equal("identity", msg.GetRelations()[2].GetObjectType())
 }
 
 func TestTransformUserIdentifier(t *testing.T) {
@@ -81,22 +82,23 @@ func TestTransformUserIdentifier(t *testing.T) {
 
 	sCfg, err := convert.NewTransformConfig(&cfg)
 	assert.NoError(err)
+
 	cvt := convert.NewConverter(sCfg)
 	msg, err := cvt.TransformResource(ScimUser, "user")
 	assert.NoError(err)
 
 	assert.NotNil(msg)
-	assert.NotEmpty(msg.Objects)
-	assert.NotEmpty(msg.Relations)
-	assert.Equal("foo@bar.com", msg.Relations[1].SubjectId)
-	assert.Equal("identity", msg.Relations[1].SubjectType)
-	assert.Equal("identitifier", msg.Relations[1].Relation)
-	assert.Equal("foobar", msg.Relations[1].ObjectId)
-	assert.Equal("user", msg.Relations[1].ObjectType)
+	assert.NotEmpty(msg.GetObjects())
+	assert.NotEmpty(msg.GetRelations())
+	assert.Equal("foo@bar.com", msg.GetRelations()[1].GetSubjectId())
+	assert.Equal("identity", msg.GetRelations()[1].GetSubjectType())
+	assert.Equal("identitifier", msg.GetRelations()[1].GetRelation())
+	assert.Equal("foobar", msg.GetRelations()[1].GetObjectId())
+	assert.Equal("user", msg.GetRelations()[1].GetObjectType())
 
-	assert.Equal("foobar", msg.Relations[0].ObjectId)
-	assert.Equal("user", msg.Relations[0].ObjectType)
+	assert.Equal("foobar", msg.GetRelations()[0].GetObjectId())
+	assert.Equal("user", msg.GetRelations()[0].GetObjectType())
 
-	assert.Equal("fooooo", msg.Relations[2].SubjectId)
-	assert.Equal("identity", msg.Relations[2].SubjectType)
+	assert.Equal("fooooo", msg.GetRelations()[2].GetSubjectId())
+	assert.Equal("identity", msg.GetRelations()[2].GetSubjectType())
 }

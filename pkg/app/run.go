@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/aserto-dev/go-aserto/ds/v3"
 	"github.com/aserto-dev/logger"
@@ -123,16 +122,18 @@ func (s *SCIMServer) Run() error {
 	}
 
 	srv := &http.Server{
-		Addr:         s.cfg.Server.ListenAddress,
-		Handler:      app.auth(server.ServeHTTP),
-		TLSConfig:    tlsServerConfig,
-		IdleTimeout:  time.Minute,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		Addr:              s.cfg.Server.ListenAddress,
+		Handler:           app.auth(server.ServeHTTP),
+		TLSConfig:         tlsServerConfig,
+		IdleTimeout:       s.cfg.Server.IdleTimeout,
+		ReadTimeout:       s.cfg.Server.ReadTimeout,
+		WriteTimeout:      s.cfg.Server.WriteTimeout,
+		ReadHeaderTimeout: s.cfg.Server.ReadHeaderTimeout,
 	}
 
 	s.server = srv
 	s.log.Info().Str("address", s.cfg.Server.ListenAddress).Msg("Starting SCIM server")
+
 	if s.cfg.Server.Certs.HasCert() {
 		return srv.ListenAndServeTLS("", "")
 	}
@@ -147,14 +148,17 @@ func (s *SCIMServer) Shutdown(ctx context.Context) error {
 		s.log.Info().Msg("Shutting down SCIM server")
 		return s.server.Shutdown(ctx)
 	}
+
 	s.server = nil
 
 	if s.dsClient != nil {
 		s.log.Info().Msg("Closing directory client connection")
+
 		if err := s.dsClient.Close(); err != nil {
 			s.log.Error().Err(err).Msg("Failed to close directory client")
 		}
 	}
+
 	s.dsClient = nil
 	s.log.Info().Msg("SCIM server shutdown complete")
 
@@ -164,6 +168,7 @@ func (s *SCIMServer) Shutdown(ctx context.Context) error {
 func userHandler(scimLogger *zerolog.Logger, cfg *convert.TransformConfig, dsClient *ds.Client) (scim.ResourceHandler, error) {
 	usersLogger := scimLogger.With().Str("component", "users").Logger()
 	usersResourceHandler, err := users.NewUsersResourceHandler(&usersLogger, cfg, dsClient)
+
 	if err != nil {
 		return nil, err
 	}
@@ -174,12 +179,15 @@ func userHandler(scimLogger *zerolog.Logger, cfg *convert.TransformConfig, dsCli
 func groupHandler(scimLogger *zerolog.Logger, cfg *convert.TransformConfig, dsClient *ds.Client) (scim.ResourceHandler, error) {
 	groupsLogger := scimLogger.With().Str("component", "groups").Logger()
 	groupsResourceHandler, err := groups.NewGroupResourceHandler(&groupsLogger, cfg, dsClient)
+
 	if err != nil {
 		return nil, err
 	}
 
 	return NewGroupResourceHandler(groupsResourceHandler)
 }
+
+const authzHeaderParts = 2
 
 type application struct {
 	cfg *config.AuthConfig
@@ -193,23 +201,14 @@ func (app *application) auth(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		username, password, ok := r.BasicAuth()
-		if ok && app.cfg.Basic.Enabled {
-			usernameHash := sha256.Sum256([]byte(username))
-			passwordHash := sha256.Sum256([]byte(password))
-			expectedUsernameHash := sha256.Sum256([]byte(app.cfg.Basic.Username))
-			expectedPasswordHash := sha256.Sum256([]byte(app.cfg.Basic.Password))
-
-			usernameMatch := (subtle.ConstantTimeCompare(usernameHash[:], expectedUsernameHash[:]) == 1)
-			passwordMatch := (subtle.ConstantTimeCompare(passwordHash[:], expectedPasswordHash[:]) == 1)
-
-			if usernameMatch && passwordMatch {
-				next.ServeHTTP(w, r)
-				return
-			}
+		if ok && app.cfg.Basic.Enabled && app.checkBasicAuth(username, password) {
+			next.ServeHTTP(w, r)
+			return
 		} else if app.cfg.Bearer.Enabled {
 			reqToken := r.Header.Get("Authorization")
 			splitToken := strings.Split(reqToken, "Bearer ")
-			if len(splitToken) == 2 {
+
+			if len(splitToken) == authzHeaderParts {
 				if subtle.ConstantTimeCompare([]byte(app.cfg.Bearer.Token), []byte(splitToken[1])) == 1 {
 					next.ServeHTTP(w, r)
 					return
@@ -220,4 +219,21 @@ func (app *application) auth(next http.HandlerFunc) http.HandlerFunc {
 		w.Header().Set("WWW-Authenticate", `Basic realm="restricted", charset="UTF-8"`)
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	})
+}
+
+func (app *application) checkBasicAuth(username, password string) bool {
+	if username == "" || password == "" {
+		return false
+	}
+
+	usernameHash := sha256.Sum256([]byte(username))
+	passwordHash := sha256.Sum256([]byte(password))
+
+	expectedUsernameHash := sha256.Sum256([]byte(app.cfg.Basic.Username))
+	expectedPasswordHash := sha256.Sum256([]byte(app.cfg.Basic.Password))
+
+	usernameMatch := (subtle.ConstantTimeCompare(usernameHash[:], expectedUsernameHash[:]) == 1)
+	passwordMatch := (subtle.ConstantTimeCompare(passwordHash[:], expectedPasswordHash[:]) == 1)
+
+	return usernameMatch && passwordMatch
 }

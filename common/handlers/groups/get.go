@@ -31,12 +31,12 @@ func (g GroupResourceHandler) Get(ctx context.Context, id string) (scim.Resource
 
 	converter := convert.NewConverter(g.cfg)
 
-	createdAt := resp.Result.CreatedAt.AsTime()
-	updatedAt := resp.Result.UpdatedAt.AsTime()
-	resource := converter.ObjectToResource(resp.Result, scim.Meta{
+	createdAt := resp.GetResult().GetCreatedAt().AsTime()
+	updatedAt := resp.GetResult().GetUpdatedAt().AsTime()
+	resource := converter.ObjectToResource(resp.GetResult(), scim.Meta{
 		Created:      &createdAt,
 		LastModified: &updatedAt,
-		Version:      resp.Result.Etag,
+		Version:      resp.GetResult().GetEtag(),
 	})
 
 	return resource, nil
@@ -68,13 +68,13 @@ func (g GroupResourceHandler) GetAll(ctx context.Context, params scim.ListReques
 
 	converter := convert.NewConverter(g.cfg)
 
-	for _, v := range resp.Results {
-		createdAt := v.CreatedAt.AsTime()
-		updatedAt := v.UpdatedAt.AsTime()
+	for _, v := range resp.GetResults() {
+		createdAt := v.GetCreatedAt().AsTime()
+		updatedAt := v.GetUpdatedAt().AsTime()
 		resource := converter.ObjectToResource(v, scim.Meta{
 			Created:      &createdAt,
 			LastModified: &updatedAt,
-			Version:      v.Etag,
+			Version:      v.GetEtag(),
 		})
 		resources = append(resources, resource)
 	}

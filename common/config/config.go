@@ -47,26 +47,34 @@ func (cfg *Config) Validate() error {
 	if cfg.User.ObjectType == "" {
 		return errors.Wrap(ErrInvalidConfig, "scim.user_object_type is required")
 	}
+
 	if cfg.User.IdentityObjectType == "" {
 		return errors.Wrap(ErrInvalidConfig, "scim.identity_object_type is required")
 	}
+
 	if cfg.User.IdentityRelation == "" {
 		return errors.Wrap(ErrInvalidConfig, "scim.identity_relation is required")
 	}
+
 	object, relation, found := strings.Cut(cfg.User.IdentityRelation, "#")
+
 	if !found {
 		return errors.Wrap(ErrInvalidConfig, "identity relation must be in the format object#relation")
 	}
+
 	if object != cfg.User.IdentityObjectType && object != cfg.User.ObjectType {
 		return errors.Wrapf(ErrInvalidConfig, "identity relation object type [%s] doesn't match user or identity type", object)
 	}
+
 	if relation == "" {
 		return errors.Wrap(ErrInvalidConfig, "identity relation is required")
 	}
+
 	if cfg.Group != nil {
 		if cfg.Group.ObjectType == "" {
 			return errors.Wrap(ErrInvalidConfig, "scim.group_object_type is required")
 		}
+
 		if cfg.Group.GroupMemberRelation == "" {
 			return errors.Wrap(ErrInvalidConfig, "scim.group_member_relation is required")
 		}

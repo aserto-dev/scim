@@ -16,13 +16,14 @@ import (
 	"github.com/aserto-dev/logger"
 	"github.com/aserto-dev/scim/pkg/app"
 	assets_test "github.com/aserto-dev/scim/pkg/test/assets"
-	"github.com/aserto-dev/topaz/pkg/cli/x"
 	"github.com/docker/go-connections/nat"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	testcontainers "github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
+
+const containerStartTimeout = 300 * time.Second
+const topazConfigFileMode = 0o700
 
 type TestCase struct {
 	Topaz           testcontainers.Container
@@ -44,45 +45,41 @@ func (tst *TestCase) ContainerLogs(ctx context.Context, t *testing.T) string {
 }
 
 func TestSetup(t *testing.T) TestCase {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	t.Logf("\nTEST CONTAINER IMAGE: %q\n", TopazImage())
 
 	req := testcontainers.ContainerRequest{
+		Name:         "scim-topaz",
 		Image:        TopazImage(),
 		ExposedPorts: []string{"9292/tcp"},
-		Env: map[string]string{
-			x.EnvTopazCertsDir:  x.DefCertsDir,
-			x.EnvTopazDBDir:     x.DefDBDir,
-			x.EnvTopazDecisions: x.DefDecisionsDir,
-		},
 		Files: []testcontainers.ContainerFile{
 			{
 				Reader:            assets_test.TopazConfigReader(),
 				ContainerFilePath: "/config/config.yaml",
-				FileMode:          0x700,
+				FileMode:          topazConfigFileMode,
 			},
 		},
 		WaitingFor: wait.ForAll(
 			wait.ForExposedPort(),
 			wait.ForLog("Starting 0.0.0.0:9292 gRPC server"),
-		).WithStartupTimeoutDefault(300 * time.Second),
+		).WithStartupTimeoutDefault(containerStartTimeout),
 	}
 
-	topaz, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+	topaz, err := testcontainers.GenericContainer(t.Context(), testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          false,
+		Reuse:            true,
 	})
 	require.NoError(t, err)
 
-	if err := topaz.Start(ctx); err != nil {
+	if err := topaz.Start(t.Context()); err != nil {
 		require.NoError(t, err)
 	}
 
-	addr, err := MappedAddr(ctx, topaz, "9292")
+	addr, err := MappedAddr(t.Context(), topaz, "9292")
 	require.NoError(t, err)
 
-	os.Setenv("ASERTO_SCIM_DIRECTORY_ADDRESS", addr)
+	t.Setenv("ASERTO_SCIM_DIRECTORY_ADDRESS", addr)
+
 	scimConfig, err := filepath.Abs("assets/config/scim.yaml")
 	require.NoError(t, err)
 
@@ -90,8 +87,7 @@ func TestSetup(t *testing.T) TestCase {
 	require.NoError(t, err)
 
 	go func() {
-		err := srv.Run()
-		require.Error(t, err)
+		srv.Run()
 	}()
 
 	time.Sleep(time.Second)
@@ -105,8 +101,8 @@ func TestSetup(t *testing.T) TestCase {
 	require.NoError(t, err)
 
 	dsClient := ds.FromConnection(conn)
-	stream, err := dsClient.Model.SetManifest(ctx)
-	assert.NoError(t, err)
+	stream, err := dsClient.Model.SetManifest(t.Context())
+	require.NoError(t, err)
 	err = stream.Send(&dsm.SetManifestRequest{
 		Msg: &dsm.SetManifestRequest_Body{
 			Body: &dsm.Body{
@@ -114,15 +110,14 @@ func TestSetup(t *testing.T) TestCase {
 			},
 		},
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	_, err = stream.CloseAndRecv()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	t.Cleanup(func() {
 		conn.Close()
-		srv.Shutdown(ctx)
+		srv.Shutdown(t.Context())
 		testcontainers.CleanupContainer(t, topaz)
-		cancel()
 	})
 
 	return TestCase{
@@ -142,7 +137,8 @@ func (tst *TestCase) UserHasIdentity(ctx context.Context, user, identity string)
 	if err != nil {
 		return false
 	}
-	return userResp.Result != nil
+
+	return userResp.GetResult() != nil
 }
 
 func (tst *TestCase) UserHasManager(ctx context.Context, user, manager string) bool {
@@ -156,7 +152,8 @@ func (tst *TestCase) UserHasManager(ctx context.Context, user, manager string) b
 	if err != nil {
 		return false
 	}
-	return userResp.Result != nil
+
+	return userResp.GetResult() != nil
 }
 
 func (tst *TestCase) ReadUserProperty(ctx context.Context, user, property string) any {
@@ -164,11 +161,11 @@ func (tst *TestCase) ReadUserProperty(ctx context.Context, user, property string
 		ObjectType: "user",
 		ObjectId:   user,
 	})
-	if err != nil || userResp.Result == nil {
+	if err != nil || userResp.GetResult() == nil {
 		return nil
 	}
 
-	return userResp.Result.Properties.Fields[property].AsInterface()
+	return userResp.GetResult().GetProperties().GetFields()[property].AsInterface()
 }
 
 func TopazImage() string {
@@ -176,6 +173,7 @@ func TopazImage() string {
 	if image != "" {
 		return image
 	}
+
 	return "ghcr.io/aserto-dev/topaz:latest"
 }
 

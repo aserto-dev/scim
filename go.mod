@@ -9,7 +9,6 @@ require (
 	github.com/aserto-dev/go-directory v0.33.10
 	github.com/aserto-dev/logger v0.0.9
 	github.com/aserto-dev/scim/common v0.0.0-00010101000000-000000000000
-	github.com/aserto-dev/topaz v0.32.58
 	github.com/docker/go-connections v0.5.0
 	github.com/elimity-com/scim v0.0.0-20240320110924-172bf2aee9c8
 	github.com/gavv/httpexpect/v2 v2.17.0
@@ -24,6 +23,7 @@ require (
 
 require (
 	dario.cat/mergo v1.0.1 // indirect
+	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.3.1 // indirect
@@ -127,6 +127,7 @@ require (
 	golang.org/x/net v0.37.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
+	golang.org/x/time v0.11.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250407143221-ac9807e6c755 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250404141209-ee84b53bf3d0 // indirect
 	google.golang.org/grpc v1.71.0 // indirect

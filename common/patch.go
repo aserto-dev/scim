@@ -23,7 +23,7 @@ func HandlePatchOPAdd(objectProps scim.ResourceAttributes, op scim.PatchOperatio
 		return nil, err
 	}
 
-	properties := make(map[string]interface{})
+	properties := make(map[string]any)
 	if op.Path.ValueExpression == nil {
 		properties[*op.Path.SubAttribute] = op.Value
 
@@ -31,15 +31,17 @@ func HandlePatchOPAdd(objectProps scim.ResourceAttributes, op scim.PatchOperatio
 	}
 
 	if objectProps[op.Path.AttributePath.AttributeName] != nil {
-		attrProps, ok := objectProps[op.Path.AttributePath.AttributeName].([]interface{})
+		attrProps, ok := objectProps[op.Path.AttributePath.AttributeName].([]any)
 		if !ok {
 			return nil, serrors.ScimErrorInvalidPath
 		}
+
 		for _, v := range attrProps {
-			originalValue, ok := v.(map[string]interface{})
+			originalValue, ok := v.(map[string]any)
 			if !ok {
 				return nil, serrors.ScimErrorInvalidPath
 			}
+
 			switch fltr.Operator {
 			case filter.EQ:
 				value, ok := originalValue[fltr.AttributePath.AttributeName].(string)
@@ -47,6 +49,7 @@ func HandlePatchOPAdd(objectProps scim.ResourceAttributes, op scim.PatchOperatio
 					if originalValue[*op.Path.SubAttribute] != nil {
 						return nil, serrors.ScimErrorUniqueness
 					}
+
 					properties = originalValue
 				}
 			case filter.PR, filter.NE, filter.CO, filter.SW, filter.EW, filter.GT, filter.GE, filter.LT, filter.LE:
@@ -54,15 +57,18 @@ func HandlePatchOPAdd(objectProps scim.ResourceAttributes, op scim.PatchOperatio
 			}
 		}
 	} else {
-		objectProps[op.Path.AttributePath.AttributeName] = make([]interface{}, 0)
+		objectProps[op.Path.AttributePath.AttributeName] = make([]any, 0)
 	}
+
 	if len(properties) == 0 {
 		properties[fltr.AttributePath.AttributeName] = fltr.CompareValue
 		properties[*op.Path.SubAttribute] = op.Value
-		attrProps, ok := objectProps[op.Path.AttributePath.AttributeName].([]interface{})
+		attrProps, ok := objectProps[op.Path.AttributePath.AttributeName].([]any)
+
 		if !ok {
 			return nil, serrors.ScimErrorInvalidPath
 		}
+
 		objectProps[op.Path.AttributePath.AttributeName] = append(attrProps, properties)
 	}
 
@@ -75,35 +81,43 @@ func HandlePatchOPRemove(objectProps scim.ResourceAttributes, op scim.PatchOpera
 	switch value := objectProps[op.Path.AttributePath.AttributeName].(type) {
 	case string:
 		delete(objectProps, op.Path.AttributePath.AttributeName)
-	case []interface{}:
+	case []any:
 		attrExpr, ok := op.Path.ValueExpression.(*filter.AttributeExpression)
 		if !ok {
 			return nil, serrors.ScimErrorInvalidPath
 		}
+
 		ftr, err := filter.ParseAttrExp([]byte(attrExpr.String()))
+
 		if err != nil {
 			return nil, err
 		}
 
 		index := -1
+
 		if ftr.Operator == filter.EQ {
 			for i, v := range value {
-				originalValue, ok := v.(map[string]interface{})
+				originalValue, ok := v.(map[string]any)
 				if !ok {
 					return nil, serrors.ScimErrorInvalidPath
 				}
+
 				value, ok := originalValue[ftr.AttributePath.AttributeName].(string)
 				if ok && value == ftr.CompareValue {
 					index = i
 				}
 			}
+
 			if index == -1 {
 				return nil, serrors.ScimErrorMutability
 			}
-			attrProps, ok := objectProps[op.Path.AttributePath.AttributeName].([]interface{})
+
+			attrProps, ok := objectProps[op.Path.AttributePath.AttributeName].([]any)
+
 			if !ok {
 				return nil, serrors.ScimErrorInvalidPath
 			}
+
 			objectProps[op.Path.AttributePath.AttributeName] = append(attrProps[:index], attrProps[index+1:]...)
 		}
 	}
@@ -115,7 +129,7 @@ func HandlePatchOPReplace(objectProps scim.ResourceAttributes, op scim.PatchOper
 	var err error
 
 	if op.Path == nil {
-		value, ok := op.Value.(map[string]interface{})
+		value, ok := op.Value.(map[string]any)
 		if ok {
 			for k, v := range value {
 				objectProps[k] = v
@@ -128,13 +142,13 @@ func HandlePatchOPReplace(objectProps scim.ResourceAttributes, op scim.PatchOper
 	switch value := objectProps[op.Path.AttributePath.AttributeName].(type) {
 	case string:
 		objectProps[op.Path.AttributePath.AttributeName] = op.Value
-	case map[string]interface{}:
+	case map[string]any:
 		if op.Path.AttributePath.SubAttribute != nil {
 			value[*op.Path.AttributePath.SubAttribute] = op.Value
 		} else {
 			objectProps[op.Path.AttributePath.AttributeName] = op.Value
 		}
-	case []interface{}:
+	case []any:
 		if op.Path.ValueExpression == nil {
 			objectProps[op.Path.AttributePath.AttributeName] = op.Value
 			break
@@ -144,40 +158,48 @@ func HandlePatchOPReplace(objectProps scim.ResourceAttributes, op scim.PatchOper
 		if err != nil {
 			return nil, err
 		}
+
 		objectProps[op.Path.AttributePath.AttributeName] = value
 	}
 
 	return objectProps, err
 }
 
-func ReplaceInInterfaceArray(value []interface{}, op scim.PatchOperation) ([]interface{}, error) {
+func ReplaceInInterfaceArray(value []any, op scim.PatchOperation) ([]any, error) {
 	attrExpr, ok := op.Path.ValueExpression.(*filter.AttributeExpression)
 	if !ok {
 		return nil, serrors.ScimErrorInvalidPath
 	}
+
 	ftr, err := filter.ParseAttrExp([]byte(attrExpr.String()))
+
 	if err != nil {
 		return nil, err
 	}
 
 	index := -1
+
 	switch ftr.Operator {
 	case filter.EQ:
 		for i, v := range value {
-			originalValue, ok := v.(map[string]interface{})
+			originalValue, ok := v.(map[string]any)
+
 			if !ok {
 				return nil, serrors.ScimErrorInvalidPath
 			}
+
 			value, ok := originalValue[ftr.AttributePath.AttributeName].(string)
+
 			if ok && value == ftr.CompareValue {
 				index = i
 			}
 		}
+
 		if index == -1 {
 			return nil, serrors.ScimErrorMutability
 		}
 
-		if originalValue, ok := value[index].(map[string]interface{}); ok {
+		if originalValue, ok := value[index].(map[string]any); ok {
 			originalValue[*op.Path.SubAttribute] = op.Value
 			value[index] = originalValue
 
@@ -199,33 +221,37 @@ func AddProperty(objectProps scim.ResourceAttributes, op scim.PatchOperation) (s
 		if objectProps[op.Path.AttributePath.AttributeName] != nil {
 			return nil, serrors.ScimErrorUniqueness
 		}
+
 		objectProps[op.Path.AttributePath.AttributeName] = op.Value
-	case map[string]interface{}:
+	case map[string]any:
 		for k, v := range value {
 			if objectProps[k] != nil {
 				return nil, serrors.ScimErrorUniqueness
 			}
+
 			objectProps[k] = v
 		}
-	case []interface{}:
+	case []any:
 		for _, v := range value {
 			switch val := v.(type) {
 			case string:
 				if objectProps[op.Path.AttributePath.AttributeName] == nil {
 					objectProps[op.Path.AttributePath.AttributeName] = make([]string, 0)
 				}
-				if attrProps, ok := objectProps[op.Path.AttributePath.AttributeName].([]interface{}); ok {
+
+				if attrProps, ok := objectProps[op.Path.AttributePath.AttributeName].([]any); ok {
 					objectProps[op.Path.AttributePath.AttributeName] = append(attrProps, v)
 				} else {
 					return nil, serrors.ScimErrorInvalidPath
 				}
-			case map[string]interface{}:
+			case map[string]any:
 				if objectProps[op.Path.AttributePath.AttributeName] == nil {
-					objectProps[op.Path.AttributePath.AttributeName] = make([]interface{}, 0)
+					objectProps[op.Path.AttributePath.AttributeName] = make([]any, 0)
 				}
 
 				properties := val
-				attrProps, ok := objectProps[op.Path.AttributePath.AttributeName].([]interface{})
+				attrProps, ok := objectProps[op.Path.AttributePath.AttributeName].([]any)
+
 				if !ok {
 					return nil, serrors.ScimErrorInvalidPath
 				}

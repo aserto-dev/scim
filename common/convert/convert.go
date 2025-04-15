@@ -34,7 +34,7 @@ func (c *Converter) ObjectToResource(object *dsc.Object, meta scim.Meta) scim.Re
 	attr := c.ObjectToResourceAttributes(object)
 
 	return scim.Resource{
-		ID:         object.Id,
+		ID:         object.GetId(),
 		ExternalID: eID,
 		Attributes: attr,
 		Meta:       meta,
@@ -42,7 +42,7 @@ func (c *Converter) ObjectToResource(object *dsc.Object, meta scim.Meta) scim.Re
 }
 
 func (c *Converter) ObjectToResourceAttributes(object *dsc.Object) scim.ResourceAttributes {
-	attr := object.Properties.AsMap()
+	attr := object.GetProperties().AsMap()
 	delete(attr, "password")
 
 	return attr
@@ -60,13 +60,16 @@ func Unmarshal[S any, D any](source S, dest *D) error {
 func UserToResource(meta scim.Meta, user *model.User) (scim.Resource, error) {
 	attributes := scim.ResourceAttributes{}
 	err := Unmarshal(user, &attributes)
+
 	if err != nil {
 		return scim.Resource{}, err
 	}
+
 	eID := optional.String{}
 	if user.ExternalID != "" {
 		eID = optional.NewString(user.ExternalID)
 	}
+
 	return scim.Resource{
 		ID:         user.ID,
 		ExternalID: eID,
@@ -78,11 +81,14 @@ func UserToResource(meta scim.Meta, user *model.User) (scim.Resource, error) {
 func (c *Converter) SCIMUserToObject(user *model.User) (*dsc.Object, error) {
 	attributes := scim.ResourceAttributes{}
 	err := Unmarshal(user, &attributes)
+
 	if err != nil {
 		return nil, err
 	}
+
 	delete(attributes, "password")
 	props, err := structpb.NewStruct(attributes)
+
 	if err != nil {
 		return nil, err
 	}
@@ -105,6 +111,7 @@ func (c *Converter) SCIMUserToObject(user *model.User) (*dsc.Object, error) {
 		Id:          userID,
 		DisplayName: displayName,
 	}
+
 	return object, nil
 }
 
@@ -115,9 +122,11 @@ func (c *Converter) SCIMGroupToObject(group *model.Group) (*dsc.Object, error) {
 
 	attributes := scim.ResourceAttributes{}
 	err := Unmarshal(group, &attributes)
+
 	if err != nil {
 		return nil, err
 	}
+
 	props, err := structpb.NewStruct(attributes)
 	if err != nil {
 		return nil, err
@@ -144,6 +153,7 @@ func (c *Converter) SCIMGroupToObject(group *model.Group) (*dsc.Object, error) {
 		Id:          objID,
 		DisplayName: displayName,
 	}
+
 	return object, nil
 }
 
@@ -164,6 +174,7 @@ func (c *Converter) TransformResource(resource map[string]any, objType string) (
 		"objectType": objType,
 	}
 	transformer := transform.NewGoTemplateTransform(template)
+
 	return transformer.TransformObject(transformInput)
 }
 
@@ -172,10 +183,13 @@ func ProtobufStructToMap(s *structpb.Struct) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	m := make(map[string]any)
 	err = json.Unmarshal(b, &m)
+
 	if err != nil {
 		return nil, err
 	}
+
 	return m, nil
 }

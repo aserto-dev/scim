@@ -29,6 +29,7 @@ func (t TemplateName) String() string {
 	case UsersGroupsRoles:
 		return "users-groups-roles"
 	}
+
 	return "unknown"
 }
 
@@ -53,9 +54,11 @@ func NewTransformConfig(cfg *config.Config) (*TransformConfig, error) {
 	if !found {
 		return nil, errors.Wrap(ErrInvalidConfig, "identity relation must be in the format object#relation")
 	}
+
 	if object != cfg.User.IdentityObjectType && object != cfg.User.ObjectType {
 		return nil, errors.Wrapf(ErrInvalidConfig, "identity relation object type [%s] doesn't match user or identity type", object)
 	}
+
 	if relation == "" {
 		return nil, errors.Wrap(ErrInvalidConfig, "identity relation is required")
 	}
@@ -69,16 +72,17 @@ func NewTransformConfig(cfg *config.Config) (*TransformConfig, error) {
 }
 
 func (c *TransformConfig) HasGroups() bool {
-	return c.Config.Group != nil
+	return c.Group != nil
 }
 
-func (c *TransformConfig) ToTemplateVars() (map[string]interface{}, error) {
-	var result map[string]interface{}
+func (c *TransformConfig) ToTemplateVars() (map[string]any, error) {
+	var result map[string]any
 
 	cfg, err := json.Marshal(c)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal ScimConfig to json")
 	}
+
 	if err := json.Unmarshal(cfg, &result); err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal ScimConfig to map")
 	}

@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"time"
+	"syscall"
 
 	"github.com/aserto-dev/scim/pkg/app"
 	"github.com/aserto-dev/scim/pkg/version"
@@ -47,12 +47,10 @@ var cmdRun = &cobra.Command{
 		}()
 
 		stop := make(chan os.Signal, 1)
-		signal.Notify(stop, os.Interrupt, os.Kill)
+		signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 		<-stop
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := srv.Shutdown(ctx); err != nil {
+		if err := srv.Shutdown(context.Background()); err != nil {
 			return err
 		}
 		log.Println("SCIM server stopped")
@@ -60,8 +58,7 @@ var cmdRun = &cobra.Command{
 	},
 }
 
-// nolint: gochecknoinits
-func init() {
+func init() { //nolint: gochecknoinits
 	cmdRun.Flags().StringVarP(&flagConfigPath, "config", "c", "", "config path")
 	rootCmd.AddCommand(cmdRun)
 }
