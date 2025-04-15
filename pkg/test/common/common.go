@@ -48,9 +48,9 @@ func TestSetup(t *testing.T) TestCase {
 	t.Logf("\nTEST CONTAINER IMAGE: %q\n", TopazImage())
 
 	req := testcontainers.ContainerRequest{
-		Name:         "scim-topaz",
-		Image:        TopazImage(),
-		ExposedPorts: []string{"9292/tcp"},
+		AlwaysPullImage: true,
+		Image:           TopazImage(),
+		ExposedPorts:    []string{"9292/tcp"},
 		Files: []testcontainers.ContainerFile{
 			{
 				Reader:            assets_test.TopazConfigReader(),
@@ -67,7 +67,6 @@ func TestSetup(t *testing.T) TestCase {
 	topaz, err := testcontainers.GenericContainer(t.Context(), testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          false,
-		Reuse:            true,
 	})
 	require.NoError(t, err)
 
