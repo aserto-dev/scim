@@ -3,12 +3,14 @@ package users
 import (
 	"context"
 
+	dsc "github.com/aserto-dev/go-directory/aserto/directory/common/v3"
 	dsr "github.com/aserto-dev/go-directory/aserto/directory/reader/v3"
 	dsw "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
 	"github.com/aserto-dev/scim/common"
 	"github.com/aserto-dev/scim/common/convert"
 	"github.com/elimity-com/scim"
 	serrors "github.com/elimity-com/scim/errors"
+	"github.com/rs/zerolog"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -62,44 +64,50 @@ func (u UsersResourceHandler) Patch(ctx context.Context, id string, operations [
 		}
 	}
 
+	resource, err := u.updateUser(ctx, attr, getObjResp.GetResult(), converter, logger)
 	if err != nil {
-		logger.Error().Err(err).Msg("error handling patch operation")
 		return scim.Resource{}, err
 	}
 
+	logger.Trace().Any("response", resource).Msg("user patched")
+
+	return resource, nil
+}
+
+func (u UsersResourceHandler) updateUser(
+	ctx context.Context,
+	attr map[string]interface{},
+	userObj *dsc.Object,
+	converter *convert.Converter,
+	logger zerolog.Logger,
+) (scim.Resource, error) {
 	transformResult, err := converter.TransformResource(attr, "user")
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to convert user to object")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
 
-	userObj := getObjResp.GetResult()
 	props, err := structpb.NewStruct(attr)
-
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to convert resource attributes to struct")
 		return scim.Resource{}, err
 	}
 
 	userObj.Properties = props
+
 	sourceUserResp, err := u.dirClient.DS().Writer.SetObject(ctx, &dsw.SetObjectRequest{
 		Object: userObj,
 	})
-
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to replace user")
 		return scim.Resource{}, err
 	}
 
-	meta, err := u.dirClient.SetUser(ctx, getObjResp.GetResult().GetId(), transformResult, attr)
+	meta, err := u.dirClient.SetUser(ctx, userObj.GetId(), transformResult, attr)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to sync user")
 		return scim.Resource{}, err
 	}
 
-	resource := converter.ObjectToResource(sourceUserResp.GetResult(), meta)
-
-	logger.Trace().Any("response", resource).Msg("user patched")
-
-	return resource, nil
+	return converter.ObjectToResource(sourceUserResp.GetResult(), meta), nil
 }

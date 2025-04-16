@@ -53,40 +53,9 @@ func (s *SCIMServer) Run() error {
 
 	s.dsClient = dsClient
 
-	transformCfg, err := convert.NewTransformConfig(&s.cfg.SCIM)
+	resourceTypes, err := s.resourceTypes()
 	if err != nil {
 		return err
-	}
-
-	userHandler, err := userHandler(s.log, transformCfg, dsClient)
-	if err != nil {
-		return err
-	}
-
-	userType := scim.ResourceType{
-		ID:          optional.NewString("User"),
-		Name:        "User",
-		Endpoint:    "/Users",
-		Description: optional.NewString("User Account"),
-		Schema:      schema.CoreUserSchema(),
-		SchemaExtensions: []scim.SchemaExtension{
-			{Schema: schema.ExtensionEnterpriseUser()},
-		},
-		Handler: userHandler,
-	}
-
-	groupHandler, err := groupHandler(s.log, transformCfg, dsClient)
-	if err != nil {
-		return err
-	}
-
-	groupType := scim.ResourceType{
-		ID:          optional.NewString("Group"),
-		Name:        "Group",
-		Endpoint:    "/Groups",
-		Description: optional.NewString("Group"),
-		Schema:      schema.CoreGroupSchema(),
-		Handler:     groupHandler,
 	}
 
 	serverArgs := &scim.ServerArgs{
@@ -100,12 +69,10 @@ func (s *SCIMServer) Run() error {
 					Name:        "HTTP Basic",
 					Description: "Authentication scheme using the HTTP Basic Standard",
 					SpecURI:     optional.NewString("https://tools.ietf.org/html/rfc7617"),
-				}},
+				},
+			},
 		},
-		ResourceTypes: []scim.ResourceType{
-			userType,
-			groupType,
-		},
+		ResourceTypes: resourceTypes,
 	}
 
 	server, err := scim.NewServer(serverArgs)
@@ -165,26 +132,66 @@ func (s *SCIMServer) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func userHandler(scimLogger *zerolog.Logger, cfg *convert.TransformConfig, dsClient *ds.Client) (scim.ResourceHandler, error) {
-	usersLogger := scimLogger.With().Str("component", "users").Logger()
-	usersResourceHandler, err := users.NewUsersResourceHandler(&usersLogger, cfg, dsClient)
+func (s *SCIMServer) userHandler(cfg *convert.TransformConfig) (scim.ResourceHandler, error) {
+	usersLogger := s.log.With().Str("component", "users").Logger()
 
+	usersResourceHandler, err := users.NewUsersResourceHandler(&usersLogger, cfg, s.dsClient)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewUsersResourceHandler(usersResourceHandler)
+	return NewResourceHandler(usersResourceHandler)
 }
 
-func groupHandler(scimLogger *zerolog.Logger, cfg *convert.TransformConfig, dsClient *ds.Client) (scim.ResourceHandler, error) {
-	groupsLogger := scimLogger.With().Str("component", "groups").Logger()
-	groupsResourceHandler, err := groups.NewGroupResourceHandler(&groupsLogger, cfg, dsClient)
+func (s *SCIMServer) groupHandler(cfg *convert.TransformConfig) (scim.ResourceHandler, error) {
+	groupsLogger := s.log.With().Str("component", "groups").Logger()
 
+	groupsResourceHandler, err := groups.NewGroupResourceHandler(&groupsLogger, cfg, s.dsClient)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewGroupResourceHandler(groupsResourceHandler)
+	return NewResourceHandler(groupsResourceHandler)
+}
+
+func (s *SCIMServer) resourceTypes() ([]scim.ResourceType, error) {
+	transformCfg, err := convert.NewTransformConfig(&s.cfg.SCIM)
+	if err != nil {
+		return nil, err
+	}
+
+	userHandler, err := s.userHandler(transformCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	userType := scim.ResourceType{
+		ID:          optional.NewString("User"),
+		Name:        "User",
+		Endpoint:    "/Users",
+		Description: optional.NewString("User Account"),
+		Schema:      schema.CoreUserSchema(),
+		SchemaExtensions: []scim.SchemaExtension{
+			{Schema: schema.ExtensionEnterpriseUser()},
+		},
+		Handler: userHandler,
+	}
+
+	groupHandler, err := s.groupHandler(transformCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	groupType := scim.ResourceType{
+		ID:          optional.NewString("Group"),
+		Name:        "Group",
+		Endpoint:    "/Groups",
+		Description: optional.NewString("Group"),
+		Schema:      schema.CoreGroupSchema(),
+		Handler:     groupHandler,
+	}
+
+	return []scim.ResourceType{userType, groupType}, nil
 }
 
 const authzHeaderParts = 2

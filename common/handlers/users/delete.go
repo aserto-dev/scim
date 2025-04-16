@@ -6,6 +6,7 @@ import (
 	dsr "github.com/aserto-dev/go-directory/aserto/directory/reader/v3"
 	dsw "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
 	serrors "github.com/elimity-com/scim/errors"
+	"github.com/rs/zerolog"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -57,7 +58,6 @@ func (u UsersResourceHandler) Delete(ctx context.Context, id string) error {
 			ObjectType:    u.cfg.User.IdentityObjectType,
 			WithRelations: true,
 		})
-
 		if err != nil {
 			logger.Error().Err(err).Msg("failed to delete identity")
 			return err
@@ -66,7 +66,17 @@ func (u UsersResourceHandler) Delete(ctx context.Context, id string) error {
 
 	logger.Trace().Msg("deleting user")
 
-	_, err = u.dirClient.DS().Writer.DeleteObject(ctx, &dsw.DeleteObjectRequest{
+	if err := u.deleteUserObjects(ctx, id, logger); err != nil {
+		return err
+	}
+
+	logger.Trace().Msg("user deleted")
+
+	return nil
+}
+
+func (u UsersResourceHandler) deleteUserObjects(ctx context.Context, id string, logger zerolog.Logger) error {
+	_, err := u.dirClient.DS().Writer.DeleteObject(ctx, &dsw.DeleteObjectRequest{
 		ObjectType:    u.cfg.User.ObjectType,
 		ObjectId:      id,
 		WithRelations: true,
@@ -78,6 +88,8 @@ func (u UsersResourceHandler) Delete(ctx context.Context, id string) error {
 		if ok && st.Code() == codes.NotFound {
 			return serrors.ScimErrorResourceNotFound(id)
 		}
+
+		return err
 	}
 
 	logger.Trace().Msg("deleting user source object")
@@ -94,9 +106,9 @@ func (u UsersResourceHandler) Delete(ctx context.Context, id string) error {
 		if ok && st.Code() == codes.NotFound {
 			return serrors.ScimErrorResourceNotFound(id)
 		}
+
+		return err
 	}
 
-	logger.Trace().Msg("user deleted")
-
-	return err
+	return nil
 }

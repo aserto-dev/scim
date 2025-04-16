@@ -3,12 +3,14 @@ package groups
 import (
 	"context"
 
+	dsc "github.com/aserto-dev/go-directory/aserto/directory/common/v3"
 	dsr "github.com/aserto-dev/go-directory/aserto/directory/reader/v3"
 	dsw "github.com/aserto-dev/go-directory/aserto/directory/writer/v3"
 	"github.com/aserto-dev/scim/common"
 	"github.com/aserto-dev/scim/common/convert"
 	"github.com/elimity-com/scim"
 	serrors "github.com/elimity-com/scim/errors"
+	"github.com/rs/zerolog"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -65,39 +67,50 @@ func (g GroupResourceHandler) Patch(ctx context.Context, id string, operations [
 		}
 	}
 
+	resource, err := g.updateGroup(ctx, attr, getObjResp.GetResult(), converter, logger)
+	if err != nil {
+		return scim.Resource{}, err
+	}
+
+	logger.Trace().Any("response", resource).Msg("group patched")
+
+	return resource, nil
+}
+
+func (g GroupResourceHandler) updateGroup(
+	ctx context.Context,
+	attr map[string]interface{},
+	groupObj *dsc.Object,
+	converter *convert.Converter,
+	logger zerolog.Logger,
+) (scim.Resource, error) {
 	transformResult, err := converter.TransformResource(attr, "group")
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to convert group to object")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
 
-	groupObj := getObjResp.GetResult()
 	props, err := structpb.NewStruct(attr)
-
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to convert attributes to struct")
 		return scim.Resource{}, err
 	}
 
 	groupObj.Properties = props
+
 	sourceGroupResp, err := g.dirClient.DS().Writer.SetObject(ctx, &dsw.SetObjectRequest{
 		Object: groupObj,
 	})
-
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to replace group")
 		return scim.Resource{}, err
 	}
 
-	meta, err := g.dirClient.SetGroup(ctx, getObjResp.GetResult().GetId(), transformResult)
+	meta, err := g.dirClient.SetGroup(ctx, groupObj.GetId(), transformResult)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to sync group")
 		return scim.Resource{}, err
 	}
 
-	resource := converter.ObjectToResource(sourceGroupResp.GetResult(), meta)
-
-	logger.Trace().Any("response", resource).Msg("group patched")
-
-	return resource, nil
+	return converter.ObjectToResource(sourceGroupResp.GetResult(), meta), nil
 }

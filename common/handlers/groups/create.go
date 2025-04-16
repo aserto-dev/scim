@@ -21,8 +21,8 @@ func (g GroupResourceHandler) Create(ctx context.Context, attributes scim.Resour
 	logger.Trace().Any("attributes", attributes).Msg("creating group")
 
 	group := &model.Group{}
-	err := convert.Unmarshal(attributes, group)
 
+	err := convert.Unmarshal(attributes, group)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to convert attributes to group")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
@@ -31,8 +31,8 @@ func (g GroupResourceHandler) Create(ctx context.Context, attributes scim.Resour
 	var result scim.Resource
 
 	converter := convert.NewConverter(g.cfg)
-	object, err := converter.SCIMGroupToObject(group)
 
+	object, err := converter.SCIMGroupToObject(group)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to convert group to object")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax

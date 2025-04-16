@@ -45,8 +45,7 @@ linters:
       ignore-comments: true
 
     gomoddirectives:
-      replace-allow-list:
-        - github.com/slok/go-http-metrics
+      replace-local: true
 
     gosec:
       excludes:
@@ -57,14 +56,7 @@ linters:
       allow:
         - error
         - empty
-        - stdlib
-        - generic
-        - proto.Message
-        - plugins.Plugin
-        - decisionlog.DecisionLogger
-        - resolvers.DirectoryResolver
-        - resolvers.RuntimeResolver
-        - v3.ReaderClient
+        - scim.ResourceHandler
 
     lll:
       line-length: 150

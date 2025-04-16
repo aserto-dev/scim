@@ -13,9 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	flagConfigPath string
-)
+var flagConfigPath string
 
 var rootCmd = &cobra.Command{
 	Use:           "aserto-scim [flags]",

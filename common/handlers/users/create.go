@@ -21,8 +21,8 @@ func (u UsersResourceHandler) Create(ctx context.Context, attributes scim.Resour
 	logger.Trace().Any("attributes", attributes).Msg("creating user")
 
 	user := &model.User{}
-	err := convert.Unmarshal(attributes, user)
 
+	err := convert.Unmarshal(attributes, user)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to convert attributes to user")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
@@ -31,8 +31,8 @@ func (u UsersResourceHandler) Create(ctx context.Context, attributes scim.Resour
 	var result scim.Resource
 
 	converter := convert.NewConverter(u.cfg)
-	object, err := converter.SCIMUserToObject(user)
 
+	object, err := converter.SCIMUserToObject(user)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to convert user to object")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
@@ -41,7 +41,6 @@ func (u UsersResourceHandler) Create(ctx context.Context, attributes scim.Resour
 	sourceUserResp, err := u.dirClient.DS().Writer.SetObject(ctx, &dsw.SetObjectRequest{
 		Object: object,
 	})
-
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to create user")
 		return scim.Resource{}, err

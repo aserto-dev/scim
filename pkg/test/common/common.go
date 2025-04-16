@@ -22,8 +22,10 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-const containerStartTimeout = 300 * time.Second
-const topazConfigFileMode = 0o700
+const (
+	containerStartTimeout = 300 * time.Second
+	topazConfigFileMode   = 0o700
+)
 
 type TestCase struct {
 	Topaz           testcontainers.Container

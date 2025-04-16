@@ -59,8 +59,8 @@ func Unmarshal[S any, D any](source S, dest *D) error {
 
 func UserToResource(meta scim.Meta, user *model.User) (scim.Resource, error) {
 	attributes := scim.ResourceAttributes{}
-	err := Unmarshal(user, &attributes)
 
+	err := Unmarshal(user, &attributes)
 	if err != nil {
 		return scim.Resource{}, err
 	}
@@ -80,15 +80,15 @@ func UserToResource(meta scim.Meta, user *model.User) (scim.Resource, error) {
 
 func (c *Converter) SCIMUserToObject(user *model.User) (*dsc.Object, error) {
 	attributes := scim.ResourceAttributes{}
-	err := Unmarshal(user, &attributes)
 
+	err := Unmarshal(user, &attributes)
 	if err != nil {
 		return nil, err
 	}
 
 	delete(attributes, "password")
-	props, err := structpb.NewStruct(attributes)
 
+	props, err := structpb.NewStruct(attributes)
 	if err != nil {
 		return nil, err
 	}
@@ -121,8 +121,8 @@ func (c *Converter) SCIMGroupToObject(group *model.Group) (*dsc.Object, error) {
 	}
 
 	attributes := scim.ResourceAttributes{}
-	err := Unmarshal(group, &attributes)
 
+	err := Unmarshal(group, &attributes)
 	if err != nil {
 		return nil, err
 	}
@@ -185,8 +185,8 @@ func ProtobufStructToMap(s *structpb.Struct) (map[string]any, error) {
 	}
 
 	m := make(map[string]any)
-	err = json.Unmarshal(b, &m)
 
+	err = json.Unmarshal(b, &m)
 	if err != nil {
 		return nil, err
 	}

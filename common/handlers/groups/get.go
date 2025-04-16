@@ -46,9 +46,7 @@ func (g GroupResourceHandler) GetAll(ctx context.Context, params scim.ListReques
 	logger := g.logger.With().Str("method", "GetAll").Logger()
 	logger.Info().Msg("getting all groups")
 
-	var (
-		resources = make([]scim.Resource, 0)
-	)
+	resources := make([]scim.Resource, 0)
 
 	if !g.cfg.HasGroups() {
 		logger.Error().Msg("groups not enabled")

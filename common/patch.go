@@ -7,13 +7,24 @@ import (
 )
 
 func HandlePatchOPAdd(objectProps scim.ResourceAttributes, op scim.PatchOperation) (scim.ResourceAttributes, error) {
-	var err error
-
 	if op.Path == nil || op.Path.ValueExpression == nil {
 		return AddProperty(objectProps, op)
 	}
 
-	valueExpression, ok := op.Path.ValueExpression.(*filter.AttributeExpression)
+	fltr, err := parseValueExpression(op.Path.ValueExpression)
+	if err != nil {
+		return nil, err
+	}
+
+	if op.Path.ValueExpression == nil {
+		return handleSimpleAdd(objectProps, op)
+	}
+
+	return handleComplexAdd(objectProps, op, fltr)
+}
+
+func parseValueExpression(expr any) (*filter.AttributeExpression, error) {
+	valueExpression, ok := expr.(*filter.AttributeExpression)
 	if !ok {
 		return nil, serrors.ScimErrorInvalidPath
 	}
@@ -23,56 +34,106 @@ func HandlePatchOPAdd(objectProps scim.ResourceAttributes, op scim.PatchOperatio
 		return nil, err
 	}
 
-	properties := make(map[string]any)
-	if op.Path.ValueExpression == nil {
-		properties[*op.Path.SubAttribute] = op.Value
+	return &fltr, nil
+}
 
-		return objectProps, nil
+func handleSimpleAdd(objectProps scim.ResourceAttributes, op scim.PatchOperation) (scim.ResourceAttributes, error) {
+	properties := make(map[string]any)
+	properties[*op.Path.SubAttribute] = op.Value
+
+	return objectProps, nil
+}
+
+func handleComplexAdd(objectProps scim.ResourceAttributes,
+	op scim.PatchOperation,
+	fltr *filter.AttributeExpression,
+) (scim.ResourceAttributes, error) {
+	attrName := op.Path.AttributePath.AttributeName
+	properties := make(map[string]any)
+
+	if objectProps[attrName] == nil {
+		objectProps[attrName] = make([]any, 0)
 	}
 
-	if objectProps[op.Path.AttributePath.AttributeName] != nil {
-		attrProps, ok := objectProps[op.Path.AttributePath.AttributeName].([]any)
-		if !ok {
-			return nil, serrors.ScimErrorInvalidPath
+	if objectProps[attrName] != nil {
+		var err error
+
+		properties, err = processExistingAttributes(objectProps[attrName], op, fltr)
+		if err != nil {
+			return nil, err
 		}
-
-		for _, v := range attrProps {
-			originalValue, ok := v.(map[string]any)
-			if !ok {
-				return nil, serrors.ScimErrorInvalidPath
-			}
-
-			switch fltr.Operator {
-			case filter.EQ:
-				value, ok := originalValue[fltr.AttributePath.AttributeName].(string)
-				if ok && value == fltr.CompareValue {
-					if originalValue[*op.Path.SubAttribute] != nil {
-						return nil, serrors.ScimErrorUniqueness
-					}
-
-					properties = originalValue
-				}
-			case filter.PR, filter.NE, filter.CO, filter.SW, filter.EW, filter.GT, filter.GE, filter.LT, filter.LE:
-				return nil, serrors.ScimErrorBadRequest("operand not supported")
-			}
-		}
-	} else {
-		objectProps[op.Path.AttributePath.AttributeName] = make([]any, 0)
 	}
 
 	if len(properties) == 0 {
-		properties[fltr.AttributePath.AttributeName] = fltr.CompareValue
-		properties[*op.Path.SubAttribute] = op.Value
-		attrProps, ok := objectProps[op.Path.AttributePath.AttributeName].([]any)
+		return appendNewProperty(objectProps, op, fltr)
+	}
 
+	return objectProps, nil
+}
+
+func processExistingAttributes(attr any, op scim.PatchOperation, fltr *filter.AttributeExpression) (map[string]any, error) {
+	attrProps, ok := attr.([]any)
+	if !ok {
+		return nil, serrors.ScimErrorInvalidPath
+	}
+
+	for _, v := range attrProps {
+		originalValue, ok := v.(map[string]any)
 		if !ok {
 			return nil, serrors.ScimErrorInvalidPath
 		}
 
-		objectProps[op.Path.AttributePath.AttributeName] = append(attrProps, properties)
+		if result, err := processAttribute(originalValue, op, fltr); err != nil {
+			return nil, err
+		} else if result != nil {
+			return result, nil
+		}
 	}
 
-	return objectProps, err
+	return make(map[string]any), nil
+}
+
+func processAttribute(value map[string]any, op scim.PatchOperation, fltr *filter.AttributeExpression) (map[string]any, error) {
+	switch fltr.Operator {
+	case filter.EQ:
+		return processEqualityOperator(value, op, fltr)
+	case filter.PR, filter.NE, filter.CO, filter.SW, filter.EW, filter.GT, filter.GE, filter.LT, filter.LE:
+		return nil, serrors.ScimErrorBadRequest("operand not supported")
+	default:
+		return nil, nil
+	}
+}
+
+func processEqualityOperator(value map[string]any, op scim.PatchOperation, fltr *filter.AttributeExpression) (map[string]any, error) {
+	attrValue, ok := value[fltr.AttributePath.AttributeName].(string)
+	if !ok || attrValue != fltr.CompareValue {
+		return nil, nil
+	}
+
+	if value[*op.Path.SubAttribute] != nil {
+		return nil, serrors.ScimErrorUniqueness
+	}
+
+	return value, nil
+}
+
+func appendNewProperty(objectProps scim.ResourceAttributes,
+	op scim.PatchOperation,
+	fltr *filter.AttributeExpression,
+) (scim.ResourceAttributes, error) {
+	properties := map[string]any{
+		fltr.AttributePath.AttributeName: fltr.CompareValue,
+		*op.Path.SubAttribute:            op.Value,
+	}
+
+	attrProps, ok := objectProps[op.Path.AttributePath.AttributeName].([]any)
+	if !ok {
+		return nil, serrors.ScimErrorInvalidPath
+	}
+
+	objectProps[op.Path.AttributePath.AttributeName] = append(attrProps, properties)
+
+	return objectProps, nil
 }
 
 func HandlePatchOPRemove(objectProps scim.ResourceAttributes, op scim.PatchOperation) (scim.ResourceAttributes, error) {
@@ -88,7 +149,6 @@ func HandlePatchOPRemove(objectProps scim.ResourceAttributes, op scim.PatchOpera
 		}
 
 		ftr, err := filter.ParseAttrExp([]byte(attrExpr.String()))
-
 		if err != nil {
 			return nil, err
 		}
@@ -172,7 +232,6 @@ func ReplaceInInterfaceArray(value []any, op scim.PatchOperation) ([]any, error)
 	}
 
 	ftr, err := filter.ParseAttrExp([]byte(attrExpr.String()))
-
 	if err != nil {
 		return nil, err
 	}

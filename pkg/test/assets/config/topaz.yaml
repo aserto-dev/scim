@@ -58,40 +58,6 @@ api:
     listen_address: "0.0.0.0:9696"
 
   services:
-    console:
-      grpc:
-        listen_address: "0.0.0.0:9292"
-        fqdn: ""
-      gateway:
-        listen_address: "0.0.0.0:9393"
-        fqdn: ""
-        allowed_headers:
-        - "Authorization"
-        - "Content-Type"
-        - "If-Match"
-        - "If-None-Match"
-        - "Depth"
-        allowed_methods:
-        - "GET"
-        - "POST"
-        - "HEAD"
-        - "DELETE"
-        - "PUT"
-        - "PATCH"
-        - "PROFIND"
-        - "MKCOL"
-        - "COPY"
-        - "MOVE"
-        allowed_origins:
-        - http://localhost
-        - http://localhost:*
-        - https://*.aserto.com
-        - https://*aserto-console.netlify.app
-        read_timeout: 2s
-        read_header_timeout: 2s
-        write_timeout: 2s
-        idle_timeout: 30s
-
     model:
       grpc:
         listen_address: "0.0.0.0:9292"
@@ -210,63 +176,3 @@ api:
       grpc:
         listen_address: "0.0.0.0:9292"
         fqdn: ""
-
-    authorizer:
-      needs:
-        - reader
-      grpc:
-        connection_timeout_seconds: 2
-        listen_address: "0.0.0.0:9292"
-        fqdn: ""
-      gateway:
-        listen_address: "0.0.0.0:9393"
-        fqdn: ""
-        allowed_headers:
-        - "Authorization"
-        - "Content-Type"
-        - "If-Match"
-        - "If-None-Match"
-        - "Depth"
-        allowed_methods:
-        - "GET"
-        - "POST"
-        - "HEAD"
-        - "DELETE"
-        - "PUT"
-        - "PATCH"
-        - "PROFIND"
-        - "MKCOL"
-        - "COPY"
-        - "MOVE"
-        allowed_origins:
-        - http://localhost
-        - http://localhost:*
-        - https://*.aserto.com
-        - https://*aserto-console.netlify.app
-        read_timeout: 2s
-        read_header_timeout: 2s
-        write_timeout: 2s
-        idle_timeout: 30s
-
-opa:
-  instance_id: "-"
-  graceful_shutdown_period_seconds: 2
-  # max_plugin_wait_time_seconds: 30 set as default
-  local_bundles:
-    paths: []
-    skip_verification: true
-  config:
-    services:
-      ghcr:
-        url: https://ghcr.io
-        type: "oci"
-        response_header_timeout_seconds: 5
-    bundles:
-      test:
-        service: ghcr
-        resource: "ghcr.io/aserto-policies/policy-rebac:latest"
-        persist: false
-        config:
-          polling:
-            min_delay_seconds: 60
-            max_delay_seconds: 120
