@@ -84,7 +84,7 @@ func (g GroupResourceHandler) updateGroup(
 	converter *convert.Converter,
 	logger zerolog.Logger,
 ) (scim.Resource, error) {
-	transformResult, err := converter.TransformResource(attr, "group")
+	transformResult, err := converter.TransformResource(attr, groupObj.GetId(), "group")
 	if err != nil {
 		logger.Err(err).Msg("failed to convert group to object")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax

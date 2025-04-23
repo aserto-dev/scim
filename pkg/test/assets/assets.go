@@ -20,6 +20,9 @@ var patch []byte
 //go:embed data/manifest.yaml
 var manifest []byte
 
+//go:embed data/group.json
+var group []byte
+
 func TopazConfigReader() *bytes.Reader {
 	return bytes.NewReader(topazConfig)
 }
@@ -32,8 +35,12 @@ func Morty() []byte {
 	return mortyJson
 }
 
-func Patch() []byte {
+func PatchOp() []byte {
 	return patch
+}
+
+func Group() []byte {
+	return group
 }
 
 func Manifest() []byte {

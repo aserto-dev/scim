@@ -45,7 +45,7 @@ func (g GroupResourceHandler) Create(ctx context.Context, attributes scim.Resour
 		return scim.Resource{}, err
 	}
 
-	transformResult, err := converter.TransformResource(attributes, "group")
+	transformResult, err := converter.TransformResource(attributes, sourceGroupResp.GetResult().GetId(), "group")
 	if err != nil {
 		logger.Err(err).Msg("failed to transform group")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax

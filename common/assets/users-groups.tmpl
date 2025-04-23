@@ -2,7 +2,7 @@
   "objects": [
   {{ if eq .objectType "user" }}
     {
-      "id": "{{ $.input.userName }}",
+      "id": "{{ $.objectId }}",
       "type": "{{ $.vars.user.object_type }}",
       "displayName": "{{ $.input.displayName }}"
     },
@@ -36,7 +36,7 @@
     {{ end }}
   {{ else }}
     {
-      "id": "{{ $.input.displayName }}",
+      "id": "{{ $.objectId }}",
       "type": "{{ $.vars.group.object_type }}",
       "displayName": "{{ $.input.displayName }}"
     }
@@ -47,14 +47,10 @@
     {{ $idRelationMap := splitn "#" 2 $.vars.user.identity_relation }}
     {{ $idObjType := $idRelationMap._0 }}
     {{ $idRelation := $idRelationMap._1 }}
-    {{ $idSubjType := $.vars.user.object_type }}
-    {{ $objId := $.input.userName }}
-    {{ $subjId := $.input.userName }}
-
-    {{ if eq $idObjType $.vars.user.object_type }}
-    {{ $idSubjType = $.vars.user.identity_object_type }}
-    {{ $subjId = $.input.userName }}
-    {{ end }}
+    {{ $idSubjType := ternary $.vars.user.identity_object_type $.vars.user.object_type (eq $idObjType $.vars.user.object_type) }}  
+    
+    {{ $objId := ternary $.objectId $.input.userName (eq $idObjType $.vars.user.object_type) }}
+    {{ $subjId := ternary $.input.userName $.objectId (eq $idObjType $.vars.user.object_type) }}
     {
       "object_type": "{{ $idObjType }}",
       "object_id": "{{ $objId }}",
@@ -63,14 +59,9 @@
       "subject_id": "{{ $subjId }}"
     },
    {{ range $i, $element := $.input.emails }}
+      {{ $objId := ternary $.objectId $element.value (eq $idObjType $.vars.user.object_type) }}
+      {{ $subjId := ternary $element.value $.objectId (eq $idObjType $.vars.user.object_type) }}
       {{ if $i }},{{ end }}
-      {{ if eq $idObjType $.vars.user.object_type }}
-      {{ $subjId = $element.value }}
-      {{ $objId := $.input.userName }}
-    {{ else }}
-      {{ $subjId := $.input.userName }}
-      {{ $objId = $element.value }}
-    {{ end }}
     {
       "object_type": "{{ $idObjType }}",
       "object_id": "{{ $objId }}",
@@ -81,13 +72,8 @@
     {{ end }}
     {{ if and ($.input.externalId) (ne $.input.externalId "") }}
     ,
-    {{ if eq $idObjType $.vars.user.object_type }}
-      {{ $objId := $.input.userName }}
-      {{ $subjId = $.input.externalId }}
-    {{ else }}
-      {{ $objId = $.input.externalId }}
-      {{ $subjId = $.input.userName }}
-    {{ end }}
+    {{ $objId := ternary $.objectId $.input.externalId (eq $idObjType $.vars.user.object_type) }}
+    {{ $subjId := ternary $.input.externalId $.objectId (eq $idObjType $.vars.user.object_type) }}
     {
       "object_type": "{{ $idObjType }}",
       "object_id": "{{ $objId }}",
@@ -103,7 +89,7 @@
     ,
     {
       "object_type": "{{ $.vars.user.object_type }}",
-      "object_id": "{{ $.input.userName }}",
+      "object_id": "{{ $.objectId }}",
       "relation": "{{ $.vars.user.manager_relation }}",
       "subject_type": "{{ $.vars.user.object_type }}",
       "subject_id": "{{ $manager.manager.value }}"
@@ -118,7 +104,7 @@
     {{ if $i }},{{ end }}
     {
       "object_type": "{{ $.vars.group.object_type }}",
-      "object_id": "{{ $.input.displayName }}",
+      "object_id": "{{ b64enc $.input.displayName }}",
       "relation": "{{ $.vars.group.group_member_relation }}",
       "subject_type": "{{ $.vars.user.object_type }}",
       "subject_id": "{{ $member.value }}"

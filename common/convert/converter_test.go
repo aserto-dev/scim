@@ -1,6 +1,7 @@
 package convert_test
 
 import (
+	"encoding/base64"
 	"testing"
 
 	"github.com/aserto-dev/scim/common/config"
@@ -42,11 +43,13 @@ func TestTransform(t *testing.T) {
 		},
 	}
 
+	userID := base64.StdEncoding.EncodeToString([]byte("foobar"))
+
 	sCfg, err := convert.NewTransformConfig(&cfg)
 	assert.NoError(err)
 
 	cvt := convert.NewConverter(sCfg)
-	msg, err := cvt.TransformResource(ScimUser, "user")
+	msg, err := cvt.TransformResource(ScimUser, userID, "user")
 	assert.NoError(err)
 
 	assert.NotNil(msg)
@@ -57,10 +60,10 @@ func TestTransform(t *testing.T) {
 	assert.Equal("foo@bar.com", msg.GetRelations()[1].GetObjectId())
 	assert.Equal("identity", msg.GetRelations()[1].GetObjectType())
 	assert.Equal("identitifier", msg.GetRelations()[1].GetRelation())
-	assert.Equal("foobar", msg.GetRelations()[1].GetSubjectId())
+	assert.Equal(userID, msg.GetRelations()[1].GetSubjectId())
 	assert.Equal("user", msg.GetRelations()[1].GetSubjectType())
 
-	assert.Equal("foobar", msg.GetRelations()[0].GetSubjectId())
+	assert.Equal(userID, msg.GetRelations()[0].GetSubjectId())
 	assert.Equal("user", msg.GetRelations()[0].GetSubjectType())
 
 	assert.Equal("fooooo", msg.GetRelations()[2].GetObjectId())
@@ -80,11 +83,13 @@ func TestTransformUserIdentifier(t *testing.T) {
 		},
 	}
 
+	userID := base64.StdEncoding.EncodeToString([]byte("foobar"))
+
 	sCfg, err := convert.NewTransformConfig(&cfg)
 	assert.NoError(err)
 
 	cvt := convert.NewConverter(sCfg)
-	msg, err := cvt.TransformResource(ScimUser, "user")
+	msg, err := cvt.TransformResource(ScimUser, userID, "user")
 	assert.NoError(err)
 
 	assert.NotNil(msg)
@@ -93,10 +98,10 @@ func TestTransformUserIdentifier(t *testing.T) {
 	assert.Equal("foo@bar.com", msg.GetRelations()[1].GetSubjectId())
 	assert.Equal("identity", msg.GetRelations()[1].GetSubjectType())
 	assert.Equal("identitifier", msg.GetRelations()[1].GetRelation())
-	assert.Equal("foobar", msg.GetRelations()[1].GetObjectId())
+	assert.Equal(userID, msg.GetRelations()[1].GetObjectId())
 	assert.Equal("user", msg.GetRelations()[1].GetObjectType())
 
-	assert.Equal("foobar", msg.GetRelations()[0].GetObjectId())
+	assert.Equal(userID, msg.GetRelations()[0].GetObjectId())
 	assert.Equal("user", msg.GetRelations()[0].GetObjectType())
 
 	assert.Equal("fooooo", msg.GetRelations()[2].GetSubjectId())

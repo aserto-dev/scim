@@ -85,7 +85,7 @@ func (u UsersResourceHandler) processUserResponse(
 		return scim.Resource{}, err
 	}
 
-	transformResult, err := converter.TransformResource(userMap, "user")
+	transformResult, err := converter.TransformResource(userMap, sourceUserResp.GetResult().GetId(), "user")
 	if err != nil {
 		logger.Err(err).Msg("failed to convert user to object")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax

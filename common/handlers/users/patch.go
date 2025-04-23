@@ -82,7 +82,7 @@ func (u UsersResourceHandler) updateUser(
 	converter *convert.Converter,
 	logger zerolog.Logger,
 ) (scim.Resource, error) {
-	transformResult, err := converter.TransformResource(attr, "user")
+	transformResult, err := converter.TransformResource(attr, userObj.GetId(), "user")
 	if err != nil {
 		logger.Err(err).Msg("failed to convert user to object")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
