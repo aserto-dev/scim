@@ -39,7 +39,8 @@ type Config struct {
 		IdleTimeout       time.Duration    `json:"idle_timeout"`
 	} `json:"server"`
 
-	SCIM config.Config `json:"scim"`
+	SCIM         config.Config `json:"scim"`
+	TemplateFile string        `json:"template_file"`
 }
 
 type AuthConfig struct {

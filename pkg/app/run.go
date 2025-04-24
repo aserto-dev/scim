@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/aserto-dev/go-aserto/ds/v3"
@@ -158,6 +159,15 @@ func (s *SCIMServer) resourceTypes() ([]scim.ResourceType, error) {
 	transformCfg, err := convert.NewTransformConfig(&s.cfg.SCIM)
 	if err != nil {
 		return nil, err
+	}
+
+	if s.cfg.TemplateFile != "" {
+		templateContent, err := os.ReadFile(s.cfg.TemplateFile)
+		if err != nil {
+			return nil, err
+		}
+
+		transformCfg = transformCfg.WithTemplate(templateContent)
 	}
 
 	userHandler, err := s.userHandler(transformCfg)

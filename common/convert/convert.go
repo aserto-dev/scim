@@ -135,15 +135,12 @@ func (c *Converter) SCIMGroupToObject(group *model.Group) (*dsc.Object, error) {
 }
 
 func (c *Converter) TransformResource(resource map[string]any, id, objType string) (*msg.Transform, error) {
-	template, err := c.cfg.Template()
-	if err != nil {
-		return nil, err
-	}
-
 	vars, err := c.cfg.ToTemplateVars()
 	if err != nil {
 		return nil, err
 	}
+
+	transformer := transform.NewGoTemplateTransform(c.cfg.Template())
 
 	transformInput := map[string]any{
 		"input":      resource,
@@ -151,7 +148,6 @@ func (c *Converter) TransformResource(resource map[string]any, id, objType strin
 		"objectType": objType,
 		"objectId":   id,
 	}
-	transformer := transform.NewGoTemplateTransform(template)
 
 	return transformer.TransformObject(transformInput)
 }

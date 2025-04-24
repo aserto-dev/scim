@@ -1,14 +1,12 @@
 package common
 
 import (
-	"embed"
-	"fmt"
+	_ "embed"
 )
 
-//go:embed assets/*
-var staticAssets embed.FS
+//go:embed assets/template.tmpl
+var template []byte
 
-func LoadTemplate(templateName string) ([]byte, error) {
-	templateFile := fmt.Sprintf("assets/%s.tmpl", templateName)
-	return staticAssets.ReadFile(templateFile)
+func LoadDefaultTemplate() []byte {
+	return template
 }
