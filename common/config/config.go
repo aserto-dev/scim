@@ -48,6 +48,10 @@ func (cfg *Config) Validate() error {
 		return errors.Wrap(ErrInvalidConfig, "scim.user_object_type is required")
 	}
 
+	if cfg.User.SourceObjectType == "" {
+		return errors.Wrap(ErrInvalidConfig, "scim.source_object_type is required")
+	}
+
 	if cfg.User.IdentityObjectType == "" {
 		return errors.Wrap(ErrInvalidConfig, "scim.identity_object_type is required")
 	}
@@ -75,10 +79,18 @@ func (cfg *Config) Validate() error {
 			return errors.Wrap(ErrInvalidConfig, "scim.group_object_type is required")
 		}
 
+		if cfg.Group.SourceObjectType == "" {
+			return errors.Wrap(ErrInvalidConfig, "scim.source_object_type is required")
+		}
+
 		if cfg.Group.GroupMemberRelation == "" {
 			return errors.Wrap(ErrInvalidConfig, "scim.group_member_relation is required")
 		}
 	}
 
 	return nil
+}
+
+func (c *Config) HasGroups() bool {
+	return c.Group != nil
 }

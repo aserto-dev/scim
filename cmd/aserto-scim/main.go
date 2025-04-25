@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/aserto-dev/scim/pkg/app"
 	"github.com/aserto-dev/scim/pkg/version"
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
 
 var flagConfigPath string
@@ -38,19 +38,18 @@ var cmdRun = &cobra.Command{
 			return err
 		}
 
-		go func() {
-			if err := srv.Run(); err != nil {
-				log.Printf("Error running SCIM server: %v", err)
-			}
-		}()
+		errGroup, ctx := errgroup.WithContext(signals.SetupSignalHandler())
+		errGroup.Go(srv.Run)
 
-		stop := make(chan os.Signal, 1)
-		signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-		<-stop
-
+		<-ctx.Done()
 		if err := srv.Shutdown(context.Background()); err != nil {
 			return err
 		}
+
+		if err := errGroup.Wait(); err != nil {
+			log.Printf("Error: %v", err)
+		}
+
 		log.Println("SCIM server stopped")
 		return nil
 	},

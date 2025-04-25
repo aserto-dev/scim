@@ -24,7 +24,7 @@ func (u UsersResourceHandler) Get(ctx context.Context, id string) (scim.Resource
 		WithRelations: false,
 	})
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to get user")
+		logger.Err(err).Msg("failed to get user")
 		st, ok := status.FromError(err)
 
 		if ok && st.Code() == codes.NotFound {
@@ -67,7 +67,7 @@ func (u UsersResourceHandler) GetAll(ctx context.Context, params scim.ListReques
 	for {
 		resp, err := u.getUsers(ctx, pageSize, pageToken)
 		if err != nil {
-			logger.Error().Err(err).Msg("failed to get users")
+			logger.Err(err).Msg("failed to get users")
 			return scim.Page{}, err
 		}
 

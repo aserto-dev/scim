@@ -12,13 +12,13 @@ func (g GroupResourceHandler) Replace(ctx context.Context, id string, attributes
 
 	err := g.Delete(ctx, id)
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to delete group")
+		logger.Err(err).Msg("failed to delete group")
 		return scim.Resource{}, err
 	}
 
 	resource, err := g.Create(ctx, attributes)
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to create group")
+		logger.Err(err).Msg("failed to create group")
 		return scim.Resource{}, err
 	}
 

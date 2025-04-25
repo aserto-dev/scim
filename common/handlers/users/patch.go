@@ -29,7 +29,7 @@ func (u UsersResourceHandler) Patch(ctx context.Context, id string, operations [
 		WithRelations: false,
 	})
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to get user")
+		logger.Err(err).Msg("failed to get user")
 		st, ok := status.FromError(err)
 
 		if ok && st.Code() == codes.NotFound {
@@ -41,27 +41,10 @@ func (u UsersResourceHandler) Patch(ctx context.Context, id string, operations [
 
 	attr := converter.ObjectToResourceAttributes(getObjResp.GetResult())
 
-	for _, op := range operations {
-		switch op.Op {
-		case scim.PatchOperationAdd:
-			attr, err = common.HandlePatchOPAdd(attr, op)
-			if err != nil {
-				logger.Error().Err(err).Msg("error adding property")
-				return scim.Resource{}, err
-			}
-		case scim.PatchOperationRemove:
-			attr, err = common.HandlePatchOPRemove(attr, op)
-			if err != nil {
-				logger.Error().Err(err).Msg("error removing property")
-				return scim.Resource{}, err
-			}
-		case scim.PatchOperationReplace:
-			attr, err = common.HandlePatchOPReplace(attr, op)
-			if err != nil {
-				logger.Error().Err(err).Msg("error replacing property")
-				return scim.Resource{}, err
-			}
-		}
+	attr, err = u.doOperations(operations, attr)
+	if err != nil {
+		logger.Err(err).Msg("failed to apply operations")
+		return scim.Resource{}, err
 	}
 
 	resource, err := u.updateUser(ctx, attr, getObjResp.GetResult(), converter, logger)
@@ -74,6 +57,24 @@ func (u UsersResourceHandler) Patch(ctx context.Context, id string, operations [
 	return resource, nil
 }
 
+func (u UsersResourceHandler) doOperations(
+	operations []scim.PatchOperation,
+	attr scim.ResourceAttributes,
+) (scim.ResourceAttributes, error) {
+	for _, op := range operations {
+		switch op.Op {
+		case scim.PatchOperationAdd:
+			return common.HandlePatchOPAdd(attr, op)
+		case scim.PatchOperationRemove:
+			return common.HandlePatchOPRemove(attr, op)
+		case scim.PatchOperationReplace:
+			return common.HandlePatchOPReplace(attr, op)
+		}
+	}
+
+	return attr, nil
+}
+
 func (u UsersResourceHandler) updateUser(
 	ctx context.Context,
 	attr map[string]interface{},
@@ -83,13 +84,13 @@ func (u UsersResourceHandler) updateUser(
 ) (scim.Resource, error) {
 	transformResult, err := converter.TransformResource(attr, "user")
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to convert user to object")
+		logger.Err(err).Msg("failed to convert user to object")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
 
 	props, err := structpb.NewStruct(attr)
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to convert resource attributes to struct")
+		logger.Err(err).Msg("failed to convert resource attributes to struct")
 		return scim.Resource{}, err
 	}
 
@@ -99,13 +100,13 @@ func (u UsersResourceHandler) updateUser(
 		Object: userObj,
 	})
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to replace user")
+		logger.Err(err).Msg("failed to replace user")
 		return scim.Resource{}, err
 	}
 
 	meta, err := u.dirClient.SetUser(ctx, userObj.GetId(), transformResult, attr)
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to sync user")
+		logger.Err(err).Msg("failed to sync user")
 		return scim.Resource{}, err
 	}
 

@@ -1,6 +1,6 @@
 {
   "objects": [
-  {{ if eq .objectType "user" }}
+  {{- if eq .objectType "user" }}
     {
       "id": "{{ $.input.userName }}",
       "type": "{{ $.vars.user.object_type }}",
@@ -13,7 +13,7 @@
         "verified": true
       }
     },
-    {{ range $i, $element := $.input.emails }}
+    {{- range $i, $element := $.input.emails }}
       {{ if $i }},{{ end }}
     {
       "id": "{{ $element.value }}",
@@ -23,8 +23,8 @@
         "verified": true
       }
     }
-    {{ end }}
-    {{ if and ($.input.externalId) (ne $.input.externalId "") }}
+    {{- end }}
+    {{- if $.input.externalId }}
     ,
     {
         "id": "{{ $.input.externalId }}",
@@ -33,9 +33,9 @@
           "verified": true
         }
     }
-    {{ end }}
-    {{ if $.input.roles }}
-    {{ range $i, $element := $.input.roles }}
+    {{- end }}
+    {{- if $.input.roles }}
+    {{- range $i, $element := $.input.roles }}
     ,
     {
       "id": "{{ $element.value }}",
@@ -46,29 +46,29 @@
         "primary": {{ $element.primary }}
       }
     }
-    {{ end }}
-    {{ end }}
-  {{ else }}
+    {{- end }}
+    {{- end }}
+  {{- else }}
     {
       "id": "{{ $.input.displayName }}",
       "type": "{{ $.vars.group.object_type }}",
       "displayName": "{{ $.input.displayName }}"
     }
-  {{ end }}
+  {{- end }}
   ],
   "relations":[
-  {{ if eq .objectType "user" }}
-    {{ $idRelationMap := splitn "#" 2 $.vars.user.identity_relation }}
-    {{ $idObjType := $idRelationMap._0 }}
-    {{ $idRelation := $idRelationMap._1 }}
-    {{ $idSubjType := $.vars.user.object_type }}
-    {{ $objId := $.input.userName }}
-    {{ $subjId := $.input.userName }}
+  {{- if eq .objectType "user" }}
+    {{- $idRelationMap := splitn "#" 2 $.vars.user.identity_relation }}
+    {{- $idObjType := $idRelationMap._0 }}
+    {{- $idRelation := $idRelationMap._1 }}
+    {{- $idSubjType := $.vars.user.object_type }}
+    {{- $objId := $.input.userName }}
+    {{- $subjId := $.input.userName }}
 
-    {{ if eq $idObjType $.vars.user.object_type }}
-    {{ $idSubjType = $.vars.user.identity_object_type }}
-    {{ $subjId = $.input.userName }}
-    {{ end }}
+    {{- if eq $idObjType $.vars.user.object_type }}
+    {{- $idSubjType = $.vars.user.identity_object_type }}
+    {{- $subjId = $.input.userName }}
+    {{- end }}
     {
       "object_type": "{{ $idObjType }}",
       "object_id": "{{ $objId }}",
@@ -76,15 +76,15 @@
       "subject_type": "{{ $idSubjType }}",
       "subject_id": "{{ $subjId }}"
     },
-   {{ range $i, $element := $.input.emails }}
-      {{ if $i }},{{ end }}
-      {{ if eq $idObjType $.vars.user.object_type }}
-      {{ $subjId = $element.value }}
-      {{ $objId := $.input.userName }}
-    {{ else }}
-      {{ $subjId := $.input.userName }}
-      {{ $objId = $element.value }}
-    {{ end }}
+   {{- range $i, $element := $.input.emails }}
+      {{- if $i }},{{ end }}
+      {{- if eq $idObjType $.vars.user.object_type }}
+      {{- $subjId = $element.value }}
+      {{- $objId := $.input.userName }}
+    {{- else }}
+      {{- $subjId := $.input.userName }}
+      {{- $objId = $element.value }}
+    {{- end }}
     {
       "object_type": "{{ $idObjType }}",
       "object_id": "{{ $objId }}",
@@ -92,16 +92,16 @@
       "subject_type": "{{ $idSubjType }}",
       "subject_id": "{{ $subjId }}"
     }
-    {{ end }}
-    {{ if and ($.input.externalId) (ne $.input.externalId "") }}
+    {{- end }}
+    {{- if $.input.externalId }}
     ,
-    {{ if eq $idObjType $.vars.user.object_type }}
-      {{ $objId := $.input.userName }}
-      {{ $subjId = $.input.externalId }}
-    {{ else }}
-      {{ $objId = $.input.externalId }}
-      {{ $subjId = $.input.userName }}
-    {{ end }}
+    {{- if eq $idObjType $.vars.user.object_type }}
+      {{- $objId := $.input.userName }}
+      {{- $subjId = $.input.externalId }}
+    {{- else }}
+      {{- $objId = $.input.externalId }}
+      {{- $subjId = $.input.userName }}
+    {{- end }}
     {
       "object_type": "{{ $idObjType }}",
       "object_id": "{{ $objId }}",
@@ -109,11 +109,11 @@
       "subject_type": "{{ $idSubjType }}",
       "subject_id": "{{ $subjId }}"
     }
-    {{ end }}
-    {{ if and ($.vars.user.manager_relation) (ne $.vars.user.manager_relation "") }}
-    {{ $manager := index .input "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User" }}
-    {{ if $manager }}
-    {{ if and ($manager.manager.value) (ne $manager.manager.value "") }}
+    {{- end }}
+    {{- if $.vars.user.manager_relation }}
+    {{- $manager := index .input "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User" }}
+    {{- if $manager }}
+    {{- if and ($manager.manager.value) (ne $manager.manager.value "") }}
     ,
     {
       "object_type": "{{ $.vars.user.object_type }}",
@@ -122,11 +122,11 @@
       "subject_type": "{{ $.vars.user.object_type }}",
       "subject_id": "{{ $manager.manager.value }}"
     }
-    {{ end }}
-    {{ end }}
-    {{ end }}
-    {{ if $.input.roles }}
-    {{ range $i, $element := $.input.roles }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- if $.input.roles }}
+    {{- range $i, $element := $.input.roles }}
     ,
     {
       "object_type": "{{ $.vars.role.object_type }}",
@@ -135,12 +135,12 @@
       "subject_type": "{{ $.vars.user.object_type }}",
       "subject_id": "{{ $.input.userName }}"
     }
-    {{ end }}
-    {{ end }}
-  {{ else }}
-   {{ $members := index .input "members" }}
-    {{ if $members }}
-    {{ range $i, $member := $members }}
+    {{- end }}
+    {{- end }}
+  {{- else }}
+   {{- $members := index .input "members" }}
+    {{- if $members }}
+    {{- range $i, $member := $members }}
     {{ if $i }},{{ end }}
     {
       "object_type": "{{ $.vars.group.object_type }}",
@@ -149,8 +149,8 @@
       "subject_type": "{{ $.vars.user.object_type }}",
       "subject_id": "{{ $member.value }}"
     }
-    {{ end }}
-    {{ end }}
-   {{ end }}
+    {{- end }}
+    {{- end }}
+   {{- end }}
   ]
 }

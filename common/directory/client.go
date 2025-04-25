@@ -44,7 +44,7 @@ func (s *Client) SetUser(ctx context.Context, userID string, data *msg.Transform
 	logger := s.logger.With().Str("method", "SetUser").Str("id", userID).Logger()
 	logger.Trace().Msg("set user")
 
-	idRelation, err := s.cfg.GetIdentityRelation(userID, "")
+	idRelation, err := s.cfg.ParseIdentityRelation(userID, "")
 	if err != nil {
 		return scim.Meta{}, err
 	}
@@ -97,7 +97,7 @@ func (s *Client) SetUser(ctx context.Context, userID string, data *msg.Transform
 			})
 			if err != nil {
 				mErr = multierror.Append(mErr, err)
-				logger.Error().Err(err).Str("identity", rel.GetObjectId()).Msg("failed to delete identity")
+				logger.Err(err).Str("identity", rel.GetObjectId()).Msg("failed to delete identity")
 			}
 		}
 	}
@@ -166,7 +166,7 @@ func (s *Client) DeleteUser(ctx context.Context, userID string) error {
 	logger := s.logger.With().Str("method", "DeleteUser").Str("id", userID).Logger()
 	logger.Trace().Msg("delete user")
 
-	identityRelation, err := s.cfg.GetIdentityRelation(userID, "")
+	identityRelation, err := s.cfg.ParseIdentityRelation(userID, "")
 	if err != nil {
 		return err
 	}

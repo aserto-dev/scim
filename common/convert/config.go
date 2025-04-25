@@ -10,17 +10,17 @@ import (
 	"github.com/pkg/errors"
 )
 
-type TemplateName int
+type TemplateKind int
 
 const (
-	Users TemplateName = iota
+	Users TemplateKind = iota
 	UsersGroups
 	UsersGroupsRoles
 )
 
 var ErrInvalidConfig = errors.New("invalid config")
 
-func (t TemplateName) String() string {
+func (t TemplateKind) String() string {
 	switch t {
 	case Users:
 		return "users"
@@ -35,7 +35,7 @@ func (t TemplateName) String() string {
 
 type TransformConfig struct {
 	*config.Config
-	template           TemplateName
+	template           TemplateKind
 	IdentityObjectType string `json:"identity_object_type,omitempty"`
 	IdentityRelation   string `json:"identity_relation,omitempty"`
 }
@@ -43,7 +43,7 @@ type TransformConfig struct {
 func NewTransformConfig(cfg *config.Config) (*TransformConfig, error) {
 	template := Users
 
-	if cfg.Group != nil {
+	if cfg.HasGroups() {
 		template = UsersGroups
 		if cfg.Role != nil {
 			template = UsersGroupsRoles
@@ -71,17 +71,13 @@ func NewTransformConfig(cfg *config.Config) (*TransformConfig, error) {
 	}, nil
 }
 
-func (c *TransformConfig) HasGroups() bool {
-	return c.Group != nil
-}
-
 func (c *TransformConfig) ToTemplateVars() (map[string]any, error) {
-	var result map[string]any
-
 	cfg, err := json.Marshal(c)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal ScimConfig to json")
 	}
+
+	var result map[string]any
 
 	if err := json.Unmarshal(cfg, &result); err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal ScimConfig to map")
@@ -90,11 +86,11 @@ func (c *TransformConfig) ToTemplateVars() (map[string]any, error) {
 	return result, nil
 }
 
-func (c *TransformConfig) GetTemplate() ([]byte, error) {
+func (c *TransformConfig) Template() ([]byte, error) {
 	return common.LoadTemplate(c.template.String())
 }
 
-func (c *TransformConfig) GetIdentityRelation(userID, identity string) (*dsc.Relation, error) {
+func (c *TransformConfig) ParseIdentityRelation(userID, identity string) (*dsc.Relation, error) {
 	switch c.IdentityObjectType {
 	case c.User.IdentityObjectType:
 		return &dsc.Relation{

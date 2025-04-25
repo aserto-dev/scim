@@ -60,8 +60,7 @@ func Unmarshal[S any, D any](source S, dest *D) error {
 func UserToResource(meta scim.Meta, user *model.User) (scim.Resource, error) {
 	attributes := scim.ResourceAttributes{}
 
-	err := Unmarshal(user, &attributes)
-	if err != nil {
+	if err := Unmarshal(user, &attributes); err != nil {
 		return scim.Resource{}, err
 	}
 
@@ -81,8 +80,7 @@ func UserToResource(meta scim.Meta, user *model.User) (scim.Resource, error) {
 func (c *Converter) SCIMUserToObject(user *model.User) (*dsc.Object, error) {
 	attributes := scim.ResourceAttributes{}
 
-	err := Unmarshal(user, &attributes)
-	if err != nil {
+	if err := Unmarshal(user, &attributes); err != nil {
 		return nil, err
 	}
 
@@ -94,19 +92,10 @@ func (c *Converter) SCIMUserToObject(user *model.User) (*dsc.Object, error) {
 	}
 
 	userID := lo.Ternary(user.ID != "", user.ID, user.UserName)
-
-	displayName := user.DisplayName
-	if displayName == "" {
-		displayName = userID
-	}
-
-	sourceUserType := c.cfg.User.SourceObjectType
-	if sourceUserType == "" {
-		return nil, ErrSourceUserTypeNotSet
-	}
+	displayName := lo.Ternary(user.DisplayName != "", user.DisplayName, userID)
 
 	object := &dsc.Object{
-		Type:        sourceUserType,
+		Type:        c.cfg.User.SourceObjectType,
 		Properties:  props,
 		Id:          userID,
 		DisplayName: displayName,
@@ -122,8 +111,7 @@ func (c *Converter) SCIMGroupToObject(group *model.Group) (*dsc.Object, error) {
 
 	attributes := scim.ResourceAttributes{}
 
-	err := Unmarshal(group, &attributes)
-	if err != nil {
+	if err := Unmarshal(group, &attributes); err != nil {
 		return nil, err
 	}
 
@@ -132,23 +120,11 @@ func (c *Converter) SCIMGroupToObject(group *model.Group) (*dsc.Object, error) {
 		return nil, err
 	}
 
-	objID := group.ID
-	if objID == "" {
-		objID = group.DisplayName
-	}
-
-	displayName := group.DisplayName
-	if displayName == "" {
-		displayName = objID
-	}
-
-	sourceGroupType := c.cfg.Group.SourceObjectType
-	if sourceGroupType == "" {
-		return nil, ErrSourceGroupTypeNotSet
-	}
+	objID := lo.Ternary(group.ID != "", group.ID, group.DisplayName)
+	displayName := lo.Ternary(group.DisplayName != "", group.DisplayName, objID)
 
 	object := &dsc.Object{
-		Type:        sourceGroupType,
+		Type:        c.cfg.Group.SourceObjectType,
 		Properties:  props,
 		Id:          objID,
 		DisplayName: displayName,
@@ -158,7 +134,7 @@ func (c *Converter) SCIMGroupToObject(group *model.Group) (*dsc.Object, error) {
 }
 
 func (c *Converter) TransformResource(resource map[string]any, objType string) (*msg.Transform, error) {
-	template, err := c.cfg.GetTemplate()
+	template, err := c.cfg.Template()
 	if err != nil {
 		return nil, err
 	}

@@ -31,9 +31,9 @@ func (g GroupResourceHandler) Patch(ctx context.Context, id string, operations [
 		WithRelations: false,
 	})
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to get group")
-		st, ok := status.FromError(err)
+		logger.Err(err).Msg("failed to get group")
 
+		st, ok := status.FromError(err)
 		if ok && st.Code() == codes.NotFound {
 			return scim.Resource{}, serrors.ScimErrorResourceNotFound(id)
 		}
@@ -49,19 +49,19 @@ func (g GroupResourceHandler) Patch(ctx context.Context, id string, operations [
 		case scim.PatchOperationAdd:
 			attr, err = common.HandlePatchOPAdd(attr, op)
 			if err != nil {
-				logger.Error().Err(err).Msg("error adding property")
+				logger.Err(err).Msg("error adding property")
 				return scim.Resource{}, err
 			}
 		case scim.PatchOperationRemove:
 			attr, err = common.HandlePatchOPRemove(attr, op)
 			if err != nil {
-				logger.Error().Err(err).Msg("error removing property")
+				logger.Err(err).Msg("error removing property")
 				return scim.Resource{}, err
 			}
 		case scim.PatchOperationReplace:
 			attr, err = common.HandlePatchOPReplace(attr, op)
 			if err != nil {
-				logger.Error().Err(err).Msg("error replacing property")
+				logger.Err(err).Msg("error replacing property")
 				return scim.Resource{}, err
 			}
 		}
@@ -86,13 +86,13 @@ func (g GroupResourceHandler) updateGroup(
 ) (scim.Resource, error) {
 	transformResult, err := converter.TransformResource(attr, "group")
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to convert group to object")
+		logger.Err(err).Msg("failed to convert group to object")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
 
 	props, err := structpb.NewStruct(attr)
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to convert attributes to struct")
+		logger.Err(err).Msg("failed to convert attributes to struct")
 		return scim.Resource{}, err
 	}
 
@@ -102,13 +102,13 @@ func (g GroupResourceHandler) updateGroup(
 		Object: groupObj,
 	})
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to replace group")
+		logger.Err(err).Msg("failed to replace group")
 		return scim.Resource{}, err
 	}
 
 	meta, err := g.dirClient.SetGroup(ctx, groupObj.GetId(), transformResult)
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to sync group")
+		logger.Err(err).Msg("failed to sync group")
 		return scim.Resource{}, err
 	}
 

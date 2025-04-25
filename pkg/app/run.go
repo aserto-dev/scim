@@ -122,7 +122,7 @@ func (s *SCIMServer) Shutdown(ctx context.Context) error {
 		s.log.Info().Msg("Closing directory client connection")
 
 		if err := s.dsClient.Close(); err != nil {
-			s.log.Error().Err(err).Msg("Failed to close directory client")
+			s.log.Err(err).Msg("Failed to close directory client")
 		}
 	}
 

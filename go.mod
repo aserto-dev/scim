@@ -19,6 +19,8 @@ require (
 	github.com/spf13/viper v1.20.1
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.36.0
+	golang.org/x/sync v0.12.0
+	sigs.k8s.io/controller-runtime v0.20.4
 )
 
 require (

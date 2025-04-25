@@ -22,9 +22,8 @@ func (g GroupResourceHandler) Create(ctx context.Context, attributes scim.Resour
 
 	group := &model.Group{}
 
-	err := convert.Unmarshal(attributes, group)
-	if err != nil {
-		logger.Error().Err(err).Msg("failed to convert attributes to group")
+	if err := convert.Unmarshal(attributes, group); err != nil {
+		logger.Err(err).Msg("failed to convert attributes to group")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
 
@@ -34,7 +33,7 @@ func (g GroupResourceHandler) Create(ctx context.Context, attributes scim.Resour
 
 	object, err := converter.SCIMGroupToObject(group)
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to convert group to object")
+		logger.Err(err).Msg("failed to convert group to object")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
 
@@ -42,19 +41,19 @@ func (g GroupResourceHandler) Create(ctx context.Context, attributes scim.Resour
 		Object: object,
 	})
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to create group")
+		logger.Err(err).Msg("failed to create group")
 		return scim.Resource{}, err
 	}
 
 	transformResult, err := converter.TransformResource(attributes, "group")
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to transform group")
+		logger.Err(err).Msg("failed to transform group")
 		return scim.Resource{}, serrors.ScimErrorInvalidSyntax
 	}
 
 	meta, err := g.dirClient.SetGroup(ctx, sourceGroupResp.GetResult().GetId(), transformResult)
 	if err != nil {
-		logger.Error().Err(err).Msg("failed to sync group")
+		logger.Err(err).Msg("failed to sync group")
 		return scim.Resource{}, err
 	}
 

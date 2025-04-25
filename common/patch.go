@@ -49,11 +49,12 @@ func handleComplexAdd(objectProps scim.ResourceAttributes,
 	fltr *filter.AttributeExpression,
 ) (scim.ResourceAttributes, error) {
 	attrName := op.Path.AttributePath.AttributeName
-	properties := make(map[string]any)
 
 	if objectProps[attrName] == nil {
 		objectProps[attrName] = make([]any, 0)
 	}
+
+	properties := make(map[string]any)
 
 	if objectProps[attrName] != nil {
 		var err error
@@ -143,42 +144,9 @@ func HandlePatchOPRemove(objectProps scim.ResourceAttributes, op scim.PatchOpera
 	case string:
 		delete(objectProps, op.Path.AttributePath.AttributeName)
 	case []any:
-		attrExpr, ok := op.Path.ValueExpression.(*filter.AttributeExpression)
-		if !ok {
-			return nil, serrors.ScimErrorInvalidPath
-		}
-
-		ftr, err := filter.ParseAttrExp([]byte(attrExpr.String()))
+		objectProps, err = patchOrRemoveSlice(value, op, objectProps)
 		if err != nil {
 			return nil, err
-		}
-
-		index := -1
-
-		if ftr.Operator == filter.EQ {
-			for i, v := range value {
-				originalValue, ok := v.(map[string]any)
-				if !ok {
-					return nil, serrors.ScimErrorInvalidPath
-				}
-
-				value, ok := originalValue[ftr.AttributePath.AttributeName].(string)
-				if ok && value == ftr.CompareValue {
-					index = i
-				}
-			}
-
-			if index == -1 {
-				return nil, serrors.ScimErrorMutability
-			}
-
-			attrProps, ok := objectProps[op.Path.AttributePath.AttributeName].([]any)
-
-			if !ok {
-				return nil, serrors.ScimErrorInvalidPath
-			}
-
-			objectProps[op.Path.AttributePath.AttributeName] = append(attrProps[:index], attrProps[index+1:]...)
 		}
 	}
 
@@ -318,6 +286,48 @@ func AddProperty(objectProps scim.ResourceAttributes, op scim.PatchOperation) (s
 				objectProps[op.Path.AttributePath.AttributeName] = append(attrProps, properties)
 			}
 		}
+	}
+
+	return objectProps, nil
+}
+
+func patchOrRemoveSlice(value []any, op scim.PatchOperation, objectProps scim.ResourceAttributes) (scim.ResourceAttributes, error) {
+	attrExpr, ok := op.Path.ValueExpression.(*filter.AttributeExpression)
+	if !ok {
+		return nil, serrors.ScimErrorInvalidPath
+	}
+
+	ftr, err := filter.ParseAttrExp([]byte(attrExpr.String()))
+	if err != nil {
+		return nil, err
+	}
+
+	index := -1
+
+	if ftr.Operator == filter.EQ {
+		for i, v := range value {
+			originalValue, ok := v.(map[string]any)
+			if !ok {
+				return nil, serrors.ScimErrorInvalidPath
+			}
+
+			value, ok := originalValue[ftr.AttributePath.AttributeName].(string)
+			if ok && value == ftr.CompareValue {
+				index = i
+			}
+		}
+
+		if index == -1 {
+			return nil, serrors.ScimErrorMutability
+		}
+
+		attrProps, ok := objectProps[op.Path.AttributePath.AttributeName].([]any)
+
+		if !ok {
+			return nil, serrors.ScimErrorInvalidPath
+		}
+
+		objectProps[op.Path.AttributePath.AttributeName] = append(attrProps[:index], attrProps[index+1:]...)
 	}
 
 	return objectProps, nil
