@@ -1,0 +1,18 @@
+{
+    "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+    "userName": "rick@the-citadel.com",
+    "name": {
+        "givenName": "Rick",
+        "familyName": "Sanchez"
+    },
+    "emails": [{
+        "primary": true,
+        "value": "rick@the-citadel.com",
+        "type": "work"
+    }],
+    "displayName": "Rick Sanchez",
+	"externalId": "CiRmZDA2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs",
+    "locale": "en-US",
+    "groups": [],
+    "active": true
+}

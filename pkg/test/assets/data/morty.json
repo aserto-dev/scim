@@ -1,0 +1,23 @@
+{
+    "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+    "userName": "morty@the-citadel.com",
+    "name": {
+        "givenName": "Morty",
+        "familyName": "Smith"
+    },
+    "emails": [{
+        "primary": true,
+        "value": "morty@the-citadel.com",
+        "type": "work"
+    }],
+    "displayName": "Morty Smith",
+	"externalId": "CiRmZDE2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs",
+    "locale": "en-US",
+    "groups": [],
+    "active": true,
+    "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
+        "manager": {
+            "value": "rick@the-citadel.com"
+        }
+    }
+}

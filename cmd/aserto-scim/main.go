@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -8,11 +9,11 @@ import (
 	"github.com/aserto-dev/scim/pkg/app"
 	"github.com/aserto-dev/scim/pkg/version"
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
 
-var (
-	flagConfigPath string
-)
+var flagConfigPath string
 
 var rootCmd = &cobra.Command{
 	Use:           "aserto-scim [flags]",
@@ -32,12 +33,29 @@ var cmdRun = &cobra.Command{
 	Use:   "run [args]",
 	Short: "Start SCIM service",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return app.Run(flagConfigPath, os.Stdout, os.Stderr)
+		srv, err := app.NewSCIMServer(flagConfigPath, os.Stdout, os.Stderr)
+		if err != nil {
+			return err
+		}
+
+		errGroup, ctx := errgroup.WithContext(signals.SetupSignalHandler())
+		errGroup.Go(srv.Run)
+
+		<-ctx.Done()
+		if err := srv.Shutdown(context.Background()); err != nil {
+			return err
+		}
+
+		if err := errGroup.Wait(); err != nil {
+			log.Printf("Error: %v", err)
+		}
+
+		log.Println("SCIM server stopped")
+		return nil
 	},
 }
 
-// nolint: gochecknoinits
-func init() {
+func init() { //nolint: gochecknoinits
 	cmdRun.Flags().StringVarP(&flagConfigPath, "config", "c", "", "config path")
 	rootCmd.AddCommand(cmdRun)
 }

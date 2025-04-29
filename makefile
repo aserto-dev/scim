@@ -10,9 +10,9 @@ GOOS			:= $(shell go env GOOS)
 GOARCH			:= $(shell go env GOARCH)
 GOPRIVATE		:= "github.com/aserto-dev"
 
-GOTESTSUM_VERSION := 1.11.0
-GOLANGCI-LINT_VERSION := 1.61.0
-GORELEASER_VERSION := 2.3.2
+GOTESTSUM_VERSION := 1.12.1
+GOLANGCI-LINT_VERSION  := 2.0.2
+GORELEASER_VERSION := 2.8.2
 
 RELEASE_TAG		:= $$(svu)
 
@@ -33,12 +33,12 @@ build:
 .PHONY: lint
 lint:
 	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
-	@${EXT_BIN_DIR}/golangci-lint run --config ${PWD}/.golangci.yaml
+	@go list -f '{{.Dir}}/...' -m | xargs ${EXT_BIN_DIR}/golangci-lint run --config ${PWD}/.golangci.yaml
 
 .PHONY: test
 test:
 	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)";
-	${EXT_BIN_DIR}/gotestsum --format short-verbose -- -count=1 -v ./...
+	@go list -f '{{.Dir}}/...' -m | xargs ${EXT_BIN_DIR}/gotestsum --format short-verbose -- -count=1 -parallel=1 -v -coverprofile=cover.out -coverpkg=./...
 
 .PHONY: snapshot
 snapshot:

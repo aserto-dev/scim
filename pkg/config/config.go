@@ -3,13 +3,22 @@ package config
 import (
 	"os"
 	"strings"
+	"time"
 
 	client "github.com/aserto-dev/go-aserto"
 	"github.com/aserto-dev/logger"
-	"github.com/mitchellh/mapstructure"
+	config "github.com/aserto-dev/scim/common/config"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
+)
+
+const (
+	DefaultReadTimeout       = 5 * time.Second
+	DefaultReadHeaderTimeout = 2 * time.Second
+	DefaultWriteTimeout      = 10 * time.Second
+	DefaultIdleTimeout       = 30 * time.Second
 )
 
 var (
@@ -21,34 +30,16 @@ type Config struct {
 	Logging   logger.Config `json:"logging"`
 	Directory client.Config `json:"directory"`
 	Server    struct {
-		ListenAddress string           `json:"listen_address"`
-		Certs         client.TLSConfig `json:"certs"`
-		Auth          AuthConfig       `json:"auth"`
+		ListenAddress     string           `json:"listen_address"`
+		Certs             client.TLSConfig `json:"certs"`
+		Auth              AuthConfig       `json:"auth"`
+		ReadTimeout       time.Duration    `json:"read_timeout"`
+		ReadHeaderTimeout time.Duration    `json:"read_header_timeout"`
+		WriteTimeout      time.Duration    `json:"write_timeout"`
+		IdleTimeout       time.Duration    `json:"idle_timeout"`
 	} `json:"server"`
 
-	SCIM struct {
-		CreateEmailIdentities bool            `json:"create_email_identities"`
-		CreateRoleGroups      bool            `json:"create_role_groups"`
-		GroupMappings         []ObjectMapping `json:"group_mappings"`
-		UserMappings          []ObjectMapping `json:"user_mappings"`
-		UserObjectType        string          `json:"user_object_type"`
-		GroupMemberRelation   string          `json:"group_member_relation"`
-		GroupObjectType       string          `json:"group_object_type"`
-		IdentityObjectType    string          `json:"identity_object_type"`
-		IdentityRelation      string          `json:"identity_relation"`
-		Identity              struct {
-			ObjectType string
-			Relation   string
-		} `json:"-"`
-	} `json:"scim"`
-}
-
-type ObjectMapping struct {
-	SubjectID       string `json:"subject_id"`
-	ObjectType      string `json:"object_type"`
-	ObjectID        string `json:"object_id"`
-	Relation        string `json:"relation"`
-	SubjectRelation string `json:"subject_relation"`
+	SCIM config.Config `json:"scim"`
 }
 
 type AuthConfig struct {
@@ -63,7 +54,7 @@ type AuthConfig struct {
 	} `json:"bearer"`
 }
 
-func NewConfig(configPath string) (*Config, error) { // nolint // function will contain repeating statements for defaults
+func NewConfig(configPath string) (*Config, error) {
 	file := "config.yaml"
 	v := viper.New()
 
@@ -91,12 +82,18 @@ func NewConfig(configPath string) (*Config, error) { // nolint // function will 
 	v.SetDefault("server.auth.basic.enabled", "false")
 	v.SetDefault("server.auth.bearer.enabled", "false")
 
-	v.SetDefault("scim.create_email_identities", true)
-	v.SetDefault("scim.user_object_type", "user")
-	v.SetDefault("scim.identity_object_type", "identity")
-	v.SetDefault("scim.identity_relation", "user#identifier")
-	v.SetDefault("scim.group_object_type", "group")
-	v.SetDefault("scim.group_member_relation", "member")
+	v.SetDefault("server.read_timeout", DefaultReadTimeout)
+	v.SetDefault("server.read_header_timeout", DefaultReadHeaderTimeout)
+	v.SetDefault("server.write_timeout", DefaultWriteTimeout)
+	v.SetDefault("server.idle_timeout", DefaultIdleTimeout)
+
+	v.SetDefault("scim.user.object_type", "user")
+	v.SetDefault("scim.user.identity_object_type", "identity")
+	v.SetDefault("scim.user.identity_relation", "user#identifier")
+	v.SetDefault("scim.user.source_object_type", "scim-user")
+	v.SetDefault("scim.group.object_type", "group")
+	v.SetDefault("scim.group.group_member_relation", "member")
+	v.SetDefault("scim.group.source_object_type", "scim-group")
 
 	// Allow setting via env vars.
 	v.SetDefault("directory.api_key", "")
@@ -113,6 +110,7 @@ func NewConfig(configPath string) (*Config, error) { // nolint // function will 
 			return nil, errors.Wrapf(err, "failed to read config file '%s'", file)
 		}
 	}
+
 	v.AutomaticEnv()
 
 	cfg := new(Config)
@@ -142,37 +140,7 @@ func NewConfig(configPath string) (*Config, error) { // nolint // function will 
 }
 
 func (cfg *Config) Validate() error {
-	if cfg.SCIM.UserObjectType == "" {
-		return errors.Wrap(ErrInvalidConfig, "scim.user_object_type is required")
-	}
-	if cfg.SCIM.IdentityObjectType == "" {
-		return errors.Wrap(ErrInvalidConfig, "scim.identity_object_type is required")
-	}
-	if cfg.SCIM.IdentityRelation == "" {
-		return errors.Wrap(ErrInvalidConfig, "scim.identity_relation is required")
-	} else {
-		object, relation, found := strings.Cut(cfg.SCIM.IdentityRelation, "#")
-		if !found {
-			return errors.Wrap(ErrInvalidConfig, "identity relation must be in the format object#relation")
-		}
-		if object != cfg.SCIM.IdentityObjectType && object != cfg.SCIM.UserObjectType {
-			return errors.Wrapf(ErrInvalidConfig, "identity relation object type [%s] doesn't match user or identity type", object)
-		}
-		if relation == "" {
-			return errors.Wrap(ErrInvalidConfig, "identity relation relation is required")
-		}
-
-		cfg.SCIM.Identity.ObjectType = object
-		cfg.SCIM.Identity.Relation = relation
-	}
-	if cfg.SCIM.GroupObjectType == "" {
-		return errors.Wrap(ErrInvalidConfig, "scim.group_object_type is required")
-	}
-	if cfg.SCIM.GroupMemberRelation == "" {
-		return errors.Wrap(ErrInvalidConfig, "scim.group_member_relation is required")
-	}
-
-	return nil
+	return cfg.SCIM.Validate()
 }
 
 func fileExists(path string) (bool, error) {

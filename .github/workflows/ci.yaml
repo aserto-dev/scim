@@ -16,14 +16,21 @@ on:
 env:
   VAULT_ADDR: https://vault.eng.aserto.com/
   PRE_RELEASE: ${{ github.ref == 'refs/heads/main' && 'main' || '' }}
-  GO_VERSION: "1.23"
-  GO_RELEASER_VERSION: "v2.3.2"
-  GO_LANGCI_LINT_VERSION: "v1.61.0"
-  GO_TESTSUM_VERSION: "1.11.0"
+  GO_VERSION: "1.24"
+  GO_RELEASER_VERSION: "v2.8.2"
+  GO_LANGCI_LINT_VERSION: "v2.0.2"
+  GO_TESTSUM_VERSION: "1.12.1"
 
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        package:
+          - "./"
+          - "./common"
+
     steps:
       -
         uses: actions/checkout@v4
@@ -33,21 +40,21 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
       -
-        name: Build
-        uses: goreleaser/goreleaser-action@v5
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          distribution: goreleaser
-          version: ${{ env.GO_RELEASER_VERSION }}
-          args: build --clean --snapshot --single-target
-      -
-        name: Lint
-        uses: golangci/golangci-lint-action@v6
+        name: Lint package ${{ matrix.package }}
+        uses: golangci/golangci-lint-action@v7
         with:
           version: ${{ env.GO_LANGCI_LINT_VERSION }}
-          verify: false
-          args: --timeout=30m
+          install-mode: binary
+          working-directory: ${{ matrix.package}}
+          args: --config="${{ github.workspace }}/.golangci.yaml"
+      -
+        name: Test Setup
+        uses: gertd/action-gotestsum@v3.0.0
+        with:
+          gotestsum_version: ${{ env.GO_TESTSUM_VERSION }}
+      - name: Test package ${{ matrix.package }}
+        run: |
+          gotestsum --format short-verbose -- -count=1 -v ${{ matrix.package }}/...
 
   push:
     runs-on: ubuntu-latest
@@ -114,7 +121,7 @@ jobs:
         run: exit 1
       -
         name: Push image to GitHub Container Registry
-        uses: goreleaser/goreleaser-action@v5
+        uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: ${{ env.GO_RELEASER_VERSION }}
