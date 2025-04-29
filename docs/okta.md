@@ -15,7 +15,7 @@
 
 ## Provision users
 
-For provisoning users, a user needs to be assigned to the SCIM application.
+For provisioning users, a user needs to be assigned to the SCIM application.
 1. Go to the Assignments tab
 2. Click on Assign => Assign to People => Assign wanted users and click Done.
 Your user should show up in the Directory
@@ -23,7 +23,7 @@ Any updates to a property that is mapped to a SCIM attribute, should trigger a u
 
 ## Provision groups
 
-For provisoning groups, a group needs to be assigned to the SCIM application.
+For provisioning groups, a group needs to be assigned to the SCIM application.
 1. Go to the Assignments tab
 2. Click on Assign => Assign to People => Assign your group and click Done.
 3. Go to Push Groups tab => Push Groups => Find groups by name => search for your group and click Save

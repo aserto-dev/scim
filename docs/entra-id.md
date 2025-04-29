@@ -1,7 +1,7 @@
 # Sync users from Entra ID (AzureAD)
 
 ## Create the SCIM application
-To setup SCIM provisoning from Entra ID to Aserto, you need to create a new application in Entra ID. Please follow instructions on how to setup a new application:  https://learn.microsoft.com/en-us/entra/identity/app-provisioning/use-scim-to-provision-users-and-groups#getting-started
+To setup SCIM provisioning from Entra ID to Aserto, you need to create a new application in Entra ID. Please follow instructions on how to setup a new application:  https://learn.microsoft.com/en-us/entra/identity/app-provisioning/use-scim-to-provision-users-and-groups#getting-started
 
 When creating the application, set Tenant URL to https://{scim-endpoint}/?aadOptscim062020. The `aadOptscim062020` feature flag is required for SCIM 2.0 compliance (see https://learn.microsoft.com/en-us/entra/identity/app-provisioning/application-provisioning-config-problem-scim-compatibility#flags-to-alter-the-scim-behavior)
 
