@@ -1,6 +1,7 @@
 package convert
 
 import (
+	"encoding/base64"
 	"encoding/json"
 
 	"github.com/aserto-dev/ds-load/sdk/common/msg"
@@ -91,7 +92,7 @@ func (c *Converter) SCIMUserToObject(user *model.User) (*dsc.Object, error) {
 		return nil, err
 	}
 
-	userID := lo.Ternary(user.ID != "", user.ID, user.UserName)
+	userID := lo.Ternary(user.ID != "", user.ID, base64.StdEncoding.EncodeToString([]byte(user.UserName)))
 	displayName := lo.Ternary(user.DisplayName != "", user.DisplayName, userID)
 
 	object := &dsc.Object{
@@ -120,7 +121,7 @@ func (c *Converter) SCIMGroupToObject(group *model.Group) (*dsc.Object, error) {
 		return nil, err
 	}
 
-	objID := lo.Ternary(group.ID != "", group.ID, group.DisplayName)
+	objID := lo.Ternary(group.ID != "", group.ID, base64.StdEncoding.EncodeToString([]byte(group.DisplayName)))
 	displayName := lo.Ternary(group.DisplayName != "", group.DisplayName, objID)
 
 	object := &dsc.Object{
@@ -133,23 +134,20 @@ func (c *Converter) SCIMGroupToObject(group *model.Group) (*dsc.Object, error) {
 	return object, nil
 }
 
-func (c *Converter) TransformResource(resource map[string]any, objType string) (*msg.Transform, error) {
-	template, err := c.cfg.Template()
-	if err != nil {
-		return nil, err
-	}
-
+func (c *Converter) TransformResource(resource map[string]any, id, objType string) (*msg.Transform, error) {
 	vars, err := c.cfg.ToTemplateVars()
 	if err != nil {
 		return nil, err
 	}
 
+	transformer := transform.NewGoTemplateTransform(c.cfg.Template())
+
 	transformInput := map[string]any{
 		"input":      resource,
 		"vars":       vars,
 		"objectType": objType,
+		"objectId":   id,
 	}
-	transformer := transform.NewGoTemplateTransform(template)
 
 	return transformer.TransformObject(transformInput)
 }

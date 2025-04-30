@@ -5,7 +5,6 @@ The Aserto SCIM service uses the SCIM 2.0 protocol to import data into the Asert
 ```yaml
 ---
 logging:
-  prod: true
   log_level: info
 server:
   listen_address: ":8080"
@@ -18,17 +17,30 @@ server:
       enabled: true
       token: "scim"
 directory:
-  address: "directory.prod.aserto.com:8443"
-  tenant_id: "your_tenant_id"
-  api_key: "your_directory_rw_api_key"
+  address: "localhost:9292"
+  no_tls: true
 scim:
-  create_email_identities: true
-  create_role_groups: true
-  group_mappings:
-    - subject_id: app-admin
+  user:
+    object_type: user
+    identity_object_type: identity
+    identity_relation: user#identifier
+    property_mapping: 
+      enabled: active
+    source_object_type: scim_user
+    manager_relation: manager
+  group:
+    object_type: group
+    group_member_relation: member
+    source_object_type: scim_group
+  role:
+    object_type: group
+    role_relation: member
+  relations:
+    - object_id: system
       object_type: system
-      object_id: administrators
-      relation: member
+      relation: admin
+      subject_id: admins
+      subject_type: group
       subject_relation: member
 ```
 
@@ -77,6 +89,8 @@ curl  -X POST \
     "active": true
 }'
 ```
+
+The create operation will return a user ID, which will be used to identify the user from now on
 
 ### get a user
 `curl -X 'GET' 'http://127.0.0.1:8080/Users/{user id}' `
@@ -139,13 +153,14 @@ curl  -X PATCH \
 ]}'
 ```
 
-### create a relation from an imported group to a aserto user (e.g. giving admin permission to users that are port of an imported group)
+### create a relation from an imported group to a user (e.g. giving admin permission to users that are port of an imported group)
 ```
-  group_mappings:
-    - subject_id: app-admin
+  relations:
+    - object_id: system
       object_type: system
-      object_id: administrators
       relation: admin
+      subject_id: admins
+      subject_type: group
       subject_relation: member
 ```
-This will create a `admin` relation with `member` subject relation between the imported `add-admin` group and the already created object with id `administrators` ant type `system`
+This will create a `admin` relation with `member` subject relation between the `admins` group and the object with id `system` and type `system`

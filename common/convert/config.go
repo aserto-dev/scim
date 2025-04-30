@@ -10,46 +10,16 @@ import (
 	"github.com/pkg/errors"
 )
 
-type TemplateKind int
-
-const (
-	Users TemplateKind = iota
-	UsersGroups
-	UsersGroupsRoles
-)
-
 var ErrInvalidConfig = errors.New("invalid config")
-
-func (t TemplateKind) String() string {
-	switch t {
-	case Users:
-		return "users"
-	case UsersGroups:
-		return "users-groups"
-	case UsersGroupsRoles:
-		return "users-groups-roles"
-	}
-
-	return "unknown"
-}
 
 type TransformConfig struct {
 	*config.Config
-	template           TemplateKind
+	template           []byte
 	IdentityObjectType string `json:"identity_object_type,omitempty"`
 	IdentityRelation   string `json:"identity_relation,omitempty"`
 }
 
 func NewTransformConfig(cfg *config.Config) (*TransformConfig, error) {
-	template := Users
-
-	if cfg.HasGroups() {
-		template = UsersGroups
-		if cfg.Role != nil {
-			template = UsersGroupsRoles
-		}
-	}
-
 	object, relation, found := strings.Cut(cfg.User.IdentityRelation, "#")
 	if !found {
 		return nil, errors.Wrap(ErrInvalidConfig, "identity relation must be in the format object#relation")
@@ -65,7 +35,6 @@ func NewTransformConfig(cfg *config.Config) (*TransformConfig, error) {
 
 	return &TransformConfig{
 		Config:             cfg,
-		template:           template,
 		IdentityObjectType: object,
 		IdentityRelation:   relation,
 	}, nil
@@ -86,8 +55,17 @@ func (c *TransformConfig) ToTemplateVars() (map[string]any, error) {
 	return result, nil
 }
 
-func (c *TransformConfig) Template() ([]byte, error) {
-	return common.LoadTemplate(c.template.String())
+func (c *TransformConfig) Template() []byte {
+	if c.template == nil {
+		return common.LoadDefaultTemplate()
+	}
+
+	return c.template
+}
+
+func (c *TransformConfig) WithTemplate(template []byte) *TransformConfig {
+	c.template = template
+	return c
 }
 
 func (c *TransformConfig) ParseIdentityRelation(userID, identity string) (*dsc.Relation, error) {

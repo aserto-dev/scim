@@ -1,6 +1,6 @@
 {
     "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
-    "userName": "morty@the-citadel.com",
+    "userName": "mortysmith",
     "name": {
         "givenName": "Morty",
         "familyName": "Smith"
