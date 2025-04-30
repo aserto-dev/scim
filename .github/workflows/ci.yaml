@@ -57,6 +57,7 @@ jobs:
           gotestsum --format short-verbose -- -count=1 -v ${{ matrix.package }}/...
 
   push:
+    needs: [test]
     runs-on: ubuntu-latest
     # when on a branch only push if the branch is main
     # always push when ref is a tag
@@ -107,18 +108,6 @@ jobs:
           git config --global user.name "Aserto Bot"
           eval `ssh-agent`
           ssh-add $HOME/.ssh/id_rsa
-      -
-        name: Wait for tests to succeed
-        uses: fountainhead/action-wait-for-check@v1.1.0
-        id: wait-for-tests
-        with:
-          token: ${{ env.READ_WRITE_TOKEN }}
-          checkName: test
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      -
-        name: Stop if tests fail
-        if: steps.wait-for-tests.outputs.conclusion != 'success'
-        run: exit 1
       -
         name: Push image to GitHub Container Registry
         uses: goreleaser/goreleaser-action@v6
